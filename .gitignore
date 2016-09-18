@@ -1,3 +1,10 @@
+.idea
+
+# User data
+*.session
+api/settings
+backups/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
