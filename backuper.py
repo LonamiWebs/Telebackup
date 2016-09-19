@@ -7,6 +7,9 @@ from telethon.utils import BinaryReader, BinaryWriter
 
 
 class Backuper:
+
+    # region Initialize
+
     def __init__(self, client, download_delay=1, download_chunk_size=100):
         self.client = client
 
@@ -17,34 +20,42 @@ class Backuper:
         self.download_chunk_size = download_chunk_size
 
         # Store the file paths for easy access
-        self.msg_path = 'backups/messages/{}.tlo'  # Messages belong to a specific peer
-        self.user_path = 'backups/users.tlo'
-        self.chat_path = 'backups/chats.tlo'
+        self.msgs_path = 'backups/messages/{}.tlo'  # Messages belong to a specific peer
+        self.peer_path = 'backups/messages/{}.peer.tlo'  # Save information about the peer
+        self.users_path = 'backups/users.tlo'
+        self.chats_path = 'backups/chats.tlo'
 
         # Store what messages, users and chats we already have a backup of
         self.saved_msg_ids = set()
         self.saved_user_ids = set()
         self.saved_chat_ids = set()
 
+    # endregion
+
+    # region Utilities
+
     @staticmethod
     def get_file_handle(file_path, mode):
         """Gets a file handle for the specified file path.
            Creates parent directories, and the file itself, if necessary.
-           The mode can be either write (appends) or read"""
+           The mode can be either read, append or write"""
         folder = path.dirname(file_path)
         if not path.isdir(folder):
             makedirs(folder)
 
-        if mode == 'read':
+        if mode.startswith('r'):
             if not path.isfile(file_path):
                 open(file_path, 'ab').close()
             return BinaryReader(stream=open(file_path, 'rb'))
 
-        elif mode == 'write':
+        elif mode.startswith('a'):
             return BinaryWriter(stream=open(file_path, 'ab'))
 
+        elif mode.startswith('w'):
+            return BinaryWriter(stream=open(file_path, 'wb'))
+
         else:
-            raise ValueError('mode must be either "write" or "read"')
+            raise ValueError('mode must be either "read", "append" or "write"')
 
 
     @staticmethod
@@ -67,6 +78,10 @@ class Backuper:
 
         return peer_id
 
+    # endregion
+
+    # region Loading backups
+
     def load_saved(self, peer_file):
         """Loads the saved messages, users and chats and returns the latest message ID"""
 
@@ -76,7 +91,7 @@ class Backuper:
 
         # Then load all the values for the current peer
         last_id = 0
-        with self.get_file_handle(peer_file, mode='read') as reader:
+        with self.get_file_handle(peer_file, mode='r') as reader:
             try:
                 while True:
                     msg = reader.tgread_object()
@@ -89,14 +104,14 @@ class Backuper:
         # Also load all the saved users and chats, so we know which one
         # are new (and hence, which are the ones we need to save)
         # Load users
-        with self.get_file_handle(self.user_path, mode='read') as reader:
+        with self.get_file_handle(self.users_path, mode='r') as reader:
             try:
                 while True:
                     self.saved_user_ids.add(reader.tgread_object().id)
             except BufferError: "No more data to read"
 
         # Load chats
-        with self.get_file_handle(self.chat_path, mode='read') as reader:
+        with self.get_file_handle(self.chats_path, mode='r') as reader:
             try:
                 while True:
                     self.saved_chat_ids.add(reader.tgread_object().id)
@@ -104,12 +119,22 @@ class Backuper:
 
         return last_id
 
-    def do_backup(self, peer):
+    # endregion
+
+    # region Making backups
+
+    def begin_backup(self, peer):
+        """Begins the backup on the given peer"""
+
         # Find the current peer ID, so we can determine its file
         peer_id = self.find_peer_id(peer)
 
+        # Update peer info
+        with self.get_file_handle(self.peer_path.format(peer_id), mode='w') as peer_handle:
+            peer.on_send(peer_handle)
+
         # Determine the backup folder and file
-        peer_file = self.msg_path.format(str(peer_id))
+        peer_file = self.msgs_path.format(str(peer_id))
 
         # Load the previous data
         last_id = self.load_saved(peer_file)
@@ -122,9 +147,9 @@ class Backuper:
         # first message and backup until where we started.
         started_at_0 = last_id == 0
 
-        with self.get_file_handle(peer_file, mode='write') as msgs, \
-            self.get_file_handle(self.user_path, mode='write') as users, \
-                self.get_file_handle(self.chat_path, mode='write') as chats:
+        with self.get_file_handle(peer_file, mode='a') as msgs_handle, \
+            self.get_file_handle(self.users_path, mode='a') as users_handle, \
+                self.get_file_handle(self.chats_path, mode='a') as chats_handle:
             # Make the backup
             try:
                 while True:
@@ -141,13 +166,13 @@ class Backuper:
 
                     # First add users and chats
                     for user in result.users:
-                        self.add_user(users, user)
+                        self.add_user(users_handle, user)
                     for chat in result.chats:
-                        self.add_user(users, chat)
+                        self.add_user(chats_handle, chat)
 
                     # Then add the messages to the backup
                     for msg in result.messages:
-                        if not self.add_message(msgs, msg):
+                        if not self.add_message(msgs_handle, msg):
                             # If the message we retrieved was already saved, this means that we're
                             # done because we have the rest of the messages!
                             # Clear the list so we enter the next if, and break to early terminate
@@ -183,6 +208,8 @@ class Backuper:
                 print('Operation cancelled, not downloading more messages!')
 
         pass  # end with
+
+    # endregion
 
     # region Adding items to the backups
 

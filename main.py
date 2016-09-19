@@ -52,7 +52,7 @@ if __name__ == '__main__':
         input_peer = inputs[i]
 
         backuper = Backuper(client)
-        backuper.do_backup(input_peer)
+        backuper.begin_backup(input_peer)
 
     print('Exiting...')
     client.disconnect()

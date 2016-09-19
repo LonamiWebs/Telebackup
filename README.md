@@ -5,6 +5,10 @@ The application's main purpose is to backup any conversation from Telegram, and 
 Please note that a lot needs to be done! This application also requires the `telethon` module, installable via `pip`.
 This application also has the exact same setup as `telethon` (copy `settings_example` to `settings` and fill in your values).
 
+## Important notes
+Please note that this program will **not** update those messages which were edited! This is, after you backup a conversation,
+if you edit messages which were included in the backup, they will not be updated. This, however, should be no issue.
+
 ## Why doesn't this application use a normal database?
 There are multiple reasons not to use one:
 - There are many, many different Telegram objects. Each would require a unique table!
