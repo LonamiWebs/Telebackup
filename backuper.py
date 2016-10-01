@@ -6,6 +6,11 @@ from telethon.tl.functions.messages import GetHistoryRequest
 
 from tl_database import TLDatabase
 
+# Load the current scheme layer
+import telethon.tl.all_tlobjects as all_tlobjects
+scheme_layer = all_tlobjects.layer
+del all_tlobjects
+
 
 class Backuper:
 
@@ -47,7 +52,8 @@ class Backuper:
             json.dump({
                 'peer_id': peer_id,
                 'peer_constructor': peer.constructor_id,
-                'resume_msg_id': resume_msg_id
+                'resume_msg_id': resume_msg_id,
+                'scheme_layer': scheme_layer
             }, file)
 
     def load_metadata(self, peer_id):
@@ -76,7 +82,12 @@ class Backuper:
         # We need to know the latest message ID so we can resume the backup
         metadata = self.load_metadata(peer_id)
         if metadata:
-            last_id = metadata['resume_msg_id']
+            last_id = metadata.get('resume_msg_id')
+
+            # Also check for scheme layer consistency
+            if metadata.get('scheme_layer', scheme_layer) != scheme_layer:
+                raise InterruptedError('The backup was interrupted to prevent damage, '
+                                       'because the used scheme layers are different.')
         else:
             last_id = 0
 
