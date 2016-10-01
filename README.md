@@ -6,17 +6,17 @@ Please note that a lot needs to be done! This application also requires the `tel
 This application also has the exact same setup as `telethon` (copy `settings_example` to `settings` and fill in your values).
 
 ## Important notes
-Please note that this program will **not** update those messages which were edited! This is, after you backup a conversation,
-if you edit messages which were included in the backup, they will not be updated. This, however, should be no issue.
+Please note that this program will **not** update those messages which were edited (as of now)! This is, after you
+backup a conversation, if you edit messages which were included in the backup, they will not be updated.
+This, however, should be no issue.
 
-## Why doesn't this application use a normal database?
-There are multiple reasons not to use one:
-- There are many, many different Telegram objects. Each would require a unique table!
-- Not only there are many objects, but also many relations which would need to be written be hand.
-- Telegram's scheme changes over time. This means that the database would need to be rewritten every time.
+## How does it work?
+Every dialog (let it be an user, a chat, or a channel) is stored in its own database (SQLite). This database includes all
+the users and channels who have participated in it, and all the messages related to that dialog. This means that
+you will do get duplicates if, for example, an user talked in two chats; however, this highly simplifies everything,
+by not adding another unique database for users, chats and channels, which multiple threads may need access to.
 
-On the other hand, by taking advantage of the fact that TLObjects can be serialized:
-- The resulting backup is smaller.
-- It's easier to implement.
-- It's easier to migrate. All one needs is both versions of the scheme, old and new,
-  and simply take the properties which didn't change.
+Some parts of these messages are saved as blobs, such as the lists of entities in a message (i.e., when you talk via
+[@bold](https://telegram.me/bold)) or message media (which can be a document, a photo...). Creating tables for these
+would absolutely be crazy, because there are many different types. Instead, they're saved as blobs _and_ the media
+constructor ID as a separate column, so you can still query for which messages have a photo, and which have a document.

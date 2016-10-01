@@ -18,7 +18,7 @@ def load_settings(path='api/settings'):
     return settings
 
 
-if __name__ == '__main__':
+def main():
     print('Loading Telebackup...')
 
     # First, initialize our TelegramClient and connect
@@ -42,13 +42,11 @@ if __name__ == '__main__':
     for i, display in enumerate(displays):
         print('{}. {}'.format(i+1, display))
 
-    # Let the user decide who they want to talk to
+    # Let the user decide who they want to backup
     i = int(input('What chat do you want to backup (0 to exit)?: ')) - 1
 
     if 0 <= i < 10:
         # Retrieve the selected user
-        dialog = dialogs[i]
-        display = displays[i]
         input_peer = inputs[i]
 
         backuper = Backuper(client)
@@ -56,3 +54,7 @@ if __name__ == '__main__':
 
     print('Exiting...')
     client.disconnect()
+
+if __name__ == '__main__':
+    main()
+
