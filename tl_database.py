@@ -1,6 +1,11 @@
 import sqlite3
 
-from telethon.tl.types import Message, MessageService, User, Chat, Channel
+from telethon.tl.types import \
+    Message, MessageService, \
+    User, UserEmpty, \
+    Chat, ChatEmpty, ChatForbidden, \
+    Channel, ChannelForbidden
+
 from telethon.utils import BinaryReader
 from telethon.utils import BinaryWriter
 
@@ -224,15 +229,26 @@ class TLDatabase:
     def add_object(self, tlobject, replace=False):
         """Adds a Telegram object (TLObject) to its corresponding table"""
 
-        if isinstance(tlobject, Message):         # Adding a message
+        if isinstance(tlobject, Message):              # Adding a message
             self.add_message(tlobject, replace=replace)
-        elif isinstance(tlobject, MessageService):  # Adding a message service
+        elif isinstance(tlobject, MessageService):     # Adding a message service
             self.add_message_service(tlobject, replace=replace)
-        elif isinstance(tlobject, User):          # Adding an user
+
+        elif isinstance(tlobject, User):               # Adding an user
             self.add_user(tlobject, replace=replace)
-        elif isinstance(tlobject, Chat):          # Adding a chat
+        elif isinstance(tlobject, UserEmpty):          # Adding an empty user
+            self.add_user(tlobject, replace=replace)
+
+        elif isinstance(tlobject, Chat):               # Adding a chat
             self.add_chat(tlobject, replace=replace)
-        elif isinstance(tlobject, Channel):       # Adding a channel
+        elif isinstance(tlobject, ChatEmpty):          # Adding an empty chat
+            self.add_chat(tlobject, replace=replace)
+        elif isinstance(tlobject, ChatForbidden):      # Adding a forbidden chat
+            self.add_chat(tlobject, replace=replace)
+
+        elif isinstance(tlobject, Channel):            # Adding a channel
+            self.add_channel(tlobject, replace=replace)
+        elif isinstance(tlobject, ChannelForbidden):   # Adding a forbidden channel
             self.add_channel(tlobject, replace=replace)
         else:
             raise ValueError('Unknown type {}'.format(type(tlobject).__name__))
@@ -301,19 +317,26 @@ class TLDatabase:
             query = 'insert or replace into users values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         else:
             query = 'insert into users values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-        c.execute(query,
-                  (user.id,
-                   user.access_hash,
-                   user.is_self,
-                   user.contact,
-                   user.mutual_contact,
-                   user.deleted,
-                   user.bot,
-                   user.first_name,
-                   user.last_name,
-                   user.username,
-                   user.phone,
-                   self.adapt_object(user.photo)))
+
+        if isinstance(user, User):
+            c.execute(query,
+                      (user.id,
+                       user.access_hash,
+                       user.is_self,
+                       user.contact,
+                       user.mutual_contact,
+                       user.deleted,
+                       user.bot,
+                       user.first_name,
+                       user.last_name,
+                       user.username,
+                       user.phone,
+                       self.adapt_object(user.photo)))
+        elif isinstance(user, UserEmpty):
+            c.execute(query, (user.id,
+                              None, None, None, None, None, None, None, None, None, None, None))
+        else:
+            raise  ValueError('The user must either be an User or an UserEmpty')
 
     def add_chat(self, chat, replace=False):
         """Adds a chat TLObject to its table"""
@@ -322,13 +345,15 @@ class TLDatabase:
             query = 'insert or replace into chats values (?, ?, ?, ?, ?, ?)'
         else:
             query = 'insert into chats values (?, ?, ?, ?, ?, ?)'
+
+        # We need to use getattr because it may be a ChatEmpty or ChatForbidden
         c.execute(query,
                   (chat.id,
-                   chat.date,
-                   chat.creator,
-                   chat.title,
-                   chat.participants_count,
-                   self.adapt_object(chat.photo)))
+                   getattr(chat, 'date'),
+                   getattr(chat, 'creator'),
+                   getattr(chat, 'title'),
+                   getattr(chat, 'participants_count'),
+                   self.adapt_object(getattr(chat, 'photo'))))
 
     def add_channel(self, channel, replace=False):
         """Adds a channel TLObject to its table"""
@@ -337,15 +362,17 @@ class TLDatabase:
             query = 'insert or replace into channels values (?, ?, ?, ?, ?, ?, ?, ?)'
         else:
             query = 'insert into channels values (?, ?, ?, ?, ?, ?, ?, ?)'
+
+        # We need to use getattr because it may be a ChannelForbidden
         c.execute(query,
                   (channel.id,
                    channel.access_hash,
-                   channel.megagroup,
-                   channel.date,
-                   channel.creator,
+                   getattr(channel, 'megagroup'),
+                   getattr(channel, 'date'),
+                   getattr(channel, 'creator'),
                    channel.title,
-                   channel.username,
-                   self.adapt_object(channel.photo)))
+                   getattr(channel, 'username'),
+                   self.adapt_object(getattr(channel, 'photo'))))
 
     # endregion
 
