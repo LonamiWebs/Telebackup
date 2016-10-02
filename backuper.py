@@ -45,12 +45,13 @@ class Backuper:
 
         return peer_id
 
-    def save_metadata(self, peer, resume_msg_id):
+    def save_metadata(self, peer, peer_name, resume_msg_id):
         """Saves the metadata for the current peer"""
         peer_id = self.get_peer_id(peer)
         with open(path.join(self.backups_dir, '{}.meta'.format(peer_id)), 'w') as file:
             json.dump({
                 'peer_id': peer_id,
+                'peer_name': peer_name,
                 'peer_constructor': peer.constructor_id,
                 'resume_msg_id': resume_msg_id,
                 'scheme_layer': scheme_layer
@@ -67,7 +68,7 @@ class Backuper:
 
     # region Making backups
 
-    def begin_backup(self, input_peer):
+    def begin_backup(self, input_peer, peer_name):
         """Begins the backup on the given peer"""
 
         # Ensure the directory for the
@@ -140,7 +141,7 @@ class Backuper:
 
                 # Always commit at the end to save changes
                 self.db.commit()
-                self.save_metadata(peer=input_peer, resume_msg_id=last_id)
+                self.save_metadata(peer=input_peer, peer_name=peer_name, resume_msg_id=last_id)
 
                 if result.messages:
                     # We downloaded and added more messages, so print progress
@@ -170,7 +171,7 @@ class Backuper:
             print('Operation cancelled, not downloading more messages!')
             # Also commit here, we don't want to lose any information!
             self.db.commit()
-            self.save_metadata(peer=input_peer, resume_msg_id=last_id)
+            self.save_metadata(peer=input_peer, peer_name=peer_name, resume_msg_id=last_id)
 
     # endregion
 

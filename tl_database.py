@@ -100,13 +100,13 @@ class TLDatabase:
     @staticmethod
     def adapt_boolean(boolean):
         """Adapts a boolean value to an sql type"""
-        return b'\x01' if boolean else b'\x00'
+        return b'\x01' if boolean else None
 
     @staticmethod
     def adapt_object(tlobject):
         """Adapts a TLObject to an sql type"""
         if not tlobject:
-            return b''  # Empty bytes if no object was given
+            return None
 
         with BinaryWriter() as writer:
             writer.tgwrite_object(tlobject)
@@ -158,24 +158,24 @@ class TLDatabase:
         if sql_tuple[13]:
             return MessageService(id=sql_tuple[0],
                                   from_id=sql_tuple[2],
-                                  out=sql_tuple[4],
-                                  to_id=sql_tuple[3],
-                                  date=sql_tuple[5],
-                                  reply_to_msg_id=sql_tuple[9],
-                                  action=TLDatabase.convert_object(sql_tuple[13]))
+                                  out=sql_tuple[3],
+                                  to_id=None,  # This will always be the same, thus it wasn't saved
+                                  date=sql_tuple[4],
+                                  reply_to_msg_id=sql_tuple[8],
+                                  action=TLDatabase.convert_object(sql_tuple[12]))
         else:
             return Message(id=sql_tuple[0],
                            message=sql_tuple[1],
                            from_id=sql_tuple[2],
-                           to_id=sql_tuple[3],
-                           out=sql_tuple[4],
-                           date=sql_tuple[5],
-                           edit_date=sql_tuple[6],
-                           fwd_from=TLDatabase.convert_object(sql_tuple[7]),
-                           via_bot_id=sql_tuple[8],
-                           reply_to_msg_id=sql_tuple[9],
-                           media=TLDatabase.convert_object(sql_tuple[10]),
-                           entities=TLDatabase.convert_vector(sql_tuple[12]))
+                           to_id=None,  # This will always be the same, thus it wasn't saved
+                           out=sql_tuple[3],
+                           date=sql_tuple[4],
+                           edit_date=sql_tuple[5],
+                           fwd_from=TLDatabase.convert_object(sql_tuple[6]),
+                           via_bot_id=sql_tuple[7],
+                           reply_to_msg_id=sql_tuple[8],
+                           media=TLDatabase.convert_object(sql_tuple[9]),
+                           entities=TLDatabase.convert_vector(sql_tuple[11]))
 
     @staticmethod
     def convert_user(sql_tuple):
@@ -368,6 +368,77 @@ class TLDatabase:
 
     # endregion
 
+    # region Querying
+
+    # region Querying multiple
+
+    def query_messages(self, query=''):
+        """Query example: `order by id asc`"""
+        return self.query_many('messages', query, convert_function=self.convert_message)
+
+    def query_users(self, query=''):
+        """Query example: `order by id asc`"""
+        return self.query_many('users', query, convert_function=self.convert_user)
+
+    def query_chats(self, query=''):
+        """Query example: `order by id asc`"""
+        return self.query_many('chats', query, convert_function=self.convert_chat)
+
+    def query_channels(self, query=''):
+        """Query example: `order by id asc`"""
+        return self.query_many('channels', query, convert_function=self.convert_channel)
+
+    def query_many(self, tablename, query, convert_function):
+        """Queries the given table with the ending specified query, and yields multiple items.
+           The tuples returned from the query are converted by the convert_function"""
+        c = self.con.cursor()
+        for item in c.execute('select * from {} {}'.format(tablename, query)):
+            yield convert_function(item)
+
+    # endregion
+
+    # region Querying single
+
+    def query_message(self, query=''):
+        """Query example: `where id=123456789`"""
+        return self.query_single('messages', query, convert_function=self.convert_message)
+
+    def query_user(self, query=''):
+        """Query example: `where id=123456789`"""
+        return self.query_single('users', query, convert_function=self.convert_user)
+
+    def query_chat(self, query=''):
+        """Query example: `where id=123456789`"""
+        return self.query_single('chats', query, convert_function=self.convert_chat)
+
+    def query_channel(self, query=''):
+        """Query example: `where id=123456789`"""
+        return self.query_single('channels', query, convert_function=self.convert_channel)
+
+    def query_single(self, tablename, query, convert_function):
+        """Queries the given table with the ending specified query, and returns a single item.
+           The tuples returned from the query are converted by the convert_function"""
+        c = self.con.cursor()
+        for item in c.execute('select * from {} {}'.format(tablename, query)):
+            return convert_function(item)
+
+    # endregion
+
+    # endregion
+
     def commit(self):
         """Commit changes to the database"""
         self.con.commit()
+
+    def close(self):
+        self.con.close()
+
+    # region `with` block
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    # endregion

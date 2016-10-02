@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <meta charset="utf-8">
+</head>
+<body>
+    <div style="display:inline-block; width:100%;">
+        <div class="date">
+            <p>01/10/2016</p>
+        </div>
+    </div>
+    <table id="messages" width="100%">
+        <!-- In -->
+        <tr>
+            <td class="propic"><img class="propic" src="default_propic.png" /></td>
+            <td>
+                <div class="msg in" id="msg-id-0">
+                    <p class="msg-header"><b>User A</b></b></p>
+                    <p>Hello, how are you?</p>
+                    <p class="time" title="Saturday 1 of October, 18:08:00">18:08</p>
+                </div>
+            </td>
+            <td class="propic" />
+        </tr>
+
+        <!-- Out -->
+        <tr>
+            <td class="propic" /> <!-- Empty, so the table column number fits -->
+            <td>
+                <div class="msg out">
+                    <p class="msg-header"  id="msg-id-1"><b>User B</b>, forwarded from <b>User B</b> at <span title="Saturday 1 of October a las 12:54:00">12:54</span></p>
+                    <p>Hello. I'm fine, what about you?</p>
+                    <p class="time" title="Saturday 1 of October, 18:08:10">18:08</p>
+                </div>
+            </td>
+            <td class="propic"><img class="propic" src="default_propic.png" /></td>
+        </tr>
+
+        <!-- Out -->
+        <tr>
+            <td class="propic" />
+            <td>
+                <div class="msg out" id="msg-id-2">
+                    <p class="msg-header"><b>User B</b></p>
+                    <p>This is simply a loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong message.</p>
+                    <p class="time" title="Saturday 1 of October, 18:08:20">18:08</p>
+                </div>
+            </td>
+            <td class="propic"><img class="propic" src="default_propic.png" /></td>
+        </tr>
+
+        <!-- In -->
+        <tr>
+            <td class="propic"><img class="propic" src="default_propic.png" /></td>
+            <td>
+                <div class="msg in" id="msg-id-3">
+                    <p class="msg-header"><b>User A</b></b></p>
+                    <p>Reply to this message</p>
+                    <p class="time" title="Saturday 1 of October, 18:08:30">18:08</p>
+                </div>
+            </td>
+            <td class="propic" />
+        </tr>
+
+        <!-- Out -->
+        <tr>
+            <td class="propic" />
+            <td>
+                <div class="msg out" id="msg-id-4">
+                    <p class="msg-header"><b>User B</b>, <b>User A</b> said:</b></p>
+                    <a href="#msg-id-3" class="reply"><p>Reply to this message</p></a>
+                    <hr />
+                    <p>Okay. I'm now replying to that message.</p>
+                    <p class="time" title="Saturday 1 of October, 18:08:40">18:08</p>
+                </div>
+            </td>
+            <td class="propic"><img class="propic" src="default_propic.png" /></td>
+        </tr>
+
+        <!-- In -->
+        <tr>
+            <td class="propic"><img class="propic" src="default_propic.png" /></td>
+            <td>
+                <div class="msg in" id="msg-id-3">
+                    <p class="msg-header"><b>User A</b></b></p>
+                    <p>Good</p>
+                    <p class="time" title="Saturday 1 of October, 18:08:50">18:08</p>
+                </div>
+            </td>
+            <td class="propic" />
+        </tr>
+
+        <!-- Out -->
+        <tr>
+            <td class="propic" />
+            <td>
+                <div class="msg out" id="msg-id-4">
+                    <p class="msg-header"><b>User B</b></p>
+                    <p>Send another message so we fill the whole screen.</p>
+                    <p class="time" title="Saturday 1 of October, 18:09:00">18:09</p>
+                </div>
+            </td>
+            <td class="propic"><img class="propic" src="default_propic.png" /></td>
+        </tr>
+
+        <!-- In -->
+        <tr>
+            <td class="propic"><img class="propic" src="default_propic.png" /></td>
+            <td>
+                <div class="msg in" id="msg-id-3">
+                    <p class="msg-header"><b>User A</b></b></p>
+                    <p>OK, send a photo</p>
+                    <p class="time" title="Saturday 1 of October, 18:09:10">18:09</p>
+                </div>
+            </td>
+            <td class="propic" />
+        </tr>
+
+        <!-- Out -->
+        <tr>
+            <td class="propic" />
+            <td>
+                <div class="msg out" id="msg-id-4">
+                    <p class="msg-header"><b>User B</b></p>
+                    <p>Okay.</p>
+                    <p class="time" title="Saturday 1 of October, 18:09:20">18:09</p>
+                </div>
+            </td>
+            <td class="propic"><img class="propic" src="default_propic.png" /></td>
+        </tr>
+
+        <!-- Out -->
+        <tr>
+            <td class="propic" />
+            <td>
+                <div class="msg out" id="msg-id-4">
+                    <p class="msg-header"><b>User B</b></p>
+                    <img src="default_photo.png" />
+                    <p>Sending a photo with caption.</p>
+                    <p class="time" title="Saturday 1 of October, 18:09:30">18:09</p>
+                </div>
+            </td>
+            <td class="propic"><img class="propic" src="default_propic.png" /></td>
+        </tr>
+
+        <!-- In -->
+        <tr>
+            <td class="propic"><img class="propic" src="default_propic.png" /></td>
+            <td>
+                <div class="msg in" id="msg-id-3">
+                    <p class="msg-header"><b>User A</b></b></p>
+                    <p>It seems to work</p>
+                    <p class="time" title="Saturday 1 of October, 18:09:40">18:09</p>
+                </div>
+            </td>
+            <td class="propic" />
+        </tr>
+    </table>
+</body>
+</html>
