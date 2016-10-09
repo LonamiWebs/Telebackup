@@ -2,7 +2,11 @@ import json
 from time import sleep
 from datetime import timedelta
 from os import makedirs, path
+
+from telethon import RPCError
+from telethon.utils import get_display_name, get_extension
 from telethon.tl.functions.messages import GetHistoryRequest
+from telethon.tl.types import MessageMediaPhoto, MessageMediaDocument
 
 from tl_database import TLDatabase
 
@@ -66,6 +70,18 @@ class Backuper:
             with open(file_path, 'r') as file:
                 return json.load(file)
 
+    def get_create_media_dirs(self):
+        """Retrieves the paths for the profile photos, photos,
+           documents and stickers backups directories, creating them too"""
+        directories = []
+        for directory in ('profile_photos', 'photos', 'documents', 'stickers'):
+            current = path.join(self.backups_dir, 'media', directory)
+            makedirs(current, exist_ok=True)
+            directories.append(current)
+
+        return directories
+
+
     # region Making backups
 
     def begin_backup(self, input_peer, peer_name):
@@ -84,11 +100,8 @@ class Backuper:
         metadata = self.load_metadata(peer_id)
         if metadata:
             last_id = metadata.get('resume_msg_id')
-
-            # Also check for scheme layer consistency
-            if metadata.get('scheme_layer', scheme_layer) != scheme_layer:
-                raise InterruptedError('The backup was interrupted to prevent damage, '
-                                       'because the used scheme layers are different.')
+            # Do not check for the scheme layers to be the same,
+            # the database is meant to be consistent always
         else:
             last_id = 0
 
@@ -172,6 +185,88 @@ class Backuper:
             # Also commit here, we don't want to lose any information!
             self.db.commit()
             self.save_metadata(peer=input_peer, peer_name=peer_name, resume_msg_id=last_id)
+
+
+    def begin_backup_media(self, db_file, dl_propics, dl_photos, dl_documents):
+        propics_dir, photos_dir, documents_dir, stickers_dir = \
+            self.get_create_media_dirs()
+
+        db = TLDatabase(db_file)
+
+        # TODO Spaghetti code, refactor
+        if dl_propics:
+            total = db.count('users where photo not null')
+            print("Starting download for {} users' profile photos..".format(total))
+            for i, user in enumerate(db.query_users('where photo not null')):
+                output = path.join(propics_dir, '{}{}'
+                                   .format(user.photo.photo_id, get_extension(user.photo)))
+
+                # Try downloading the photo
+                try:
+                    if path.isfile(output):
+                        ok = True
+                    else:
+                        ok = self.client.download_profile_photo(user.photo,
+                                                                add_extension=False,
+                                                                file_path=output)
+                except RPCError:
+                    ok = False
+
+                # Show the corresponding message
+                if ok:
+                    print('Downloaded {} out of {}, now for profile photo for "{}"'
+                          .format(i, total, get_display_name(user)))
+                else:
+                    print('Downloaded {} out of {}, could not download profile photo for "{}"'
+                          .format(i, total, get_display_name(user)))
+
+        if dl_photos:
+            total = db.count('messages where media_id = {}'.format(MessageMediaPhoto.constructor_id))
+            print("Starting download for {} photos...".format(total))
+            for i, msg in enumerate(db.query_messages('where media_id = {}'.format(MessageMediaPhoto.constructor_id))):
+                output = path.join(photos_dir, '{}{}'
+                                   .format(msg.media.photo.id, get_extension(msg.media)))
+
+                # Try downloading the photo
+                try:
+                    if path.isfile(output):
+                        ok = True
+                    else:
+                        ok = self.client.download_msg_media(msg.media,
+                                                            add_extension=False,
+                                                            file_path=output)
+                except RPCError:
+                    ok = False
+
+                # Show the corresponding message
+                if ok:
+                    print('Downloaded {} out of {} photos'.format(i, total))
+                else:
+                    print('Photo {} out of {} download failed'.format(i, total))
+
+        if dl_documents:
+            total = db.count('messages where media_id = {}'.format(MessageMediaDocument.constructor_id))
+            print("Starting download for {} documents...".format(total))
+            for i, msg in enumerate(db.query_messages('where media_id = {}'.format(MessageMediaDocument.constructor_id))):
+                output = path.join(documents_dir, '{}{}'
+                                   .format(msg.media.document.id, get_extension(msg.media)))
+
+                # Try downloading the document
+                try:
+                    if path.isfile(output):
+                        ok = True
+                    else:
+                        ok = self.client.download_msg_media(msg.media,
+                                                            add_extension=False,
+                                                            file_path=output)
+                except RPCError:
+                    ok = False
+
+                # Show the corresponding message
+                if ok:
+                    print('Downloaded {} out of {} documents'.format(i, total))
+                else:
+                    print('Document {} out of {} download failed'.format(i, total))
 
     # endregion
 

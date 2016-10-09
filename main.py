@@ -3,8 +3,12 @@ from glob import glob
 from os import path
 
 from telethon import TelegramClient
+from telethon.utils import get_display_name, get_input_peer
 from backuper import Backuper
 from exporter.exporter import Exporter
+
+
+# region Utils
 
 
 def load_settings(path='api/settings'):
@@ -24,6 +28,7 @@ def load_settings(path='api/settings'):
 
 
 def get_integer(message, minimum, maximum):
+    """Retrieves an integer value, in such a way that `minimum ≤ value ≤ maximum`"""
     while True:
         try:
             value = int(input(message))
@@ -36,8 +41,28 @@ def get_integer(message, minimum, maximum):
 
 
 def get_metadata(db_id):
+    """Gets the metadata for the specified backup database ID"""
     with open('backups/{}.meta'.format(db_id), 'r') as file:
         return json.load(file)
+
+
+def prompt_pick_backup(message):
+    """Prompts the user to pick an existing database, and returns the
+       selected choice database ID and its metadata"""
+
+    # First load all the saved databases (splitting extension and path)
+    saved_db = [path.splitext(path.split(f)[1])[0] for f in glob('backups/*.tlo')]
+
+    # Then prompt the user
+    print('Available backups databases:')
+    for i, db_id in enumerate(saved_db):
+        metadata = get_metadata(db_id)
+        print('{}. {}, ID: {}'.format(i + 1,
+                                      metadata.get('peer_name', '???'),
+                                      db_id))
+
+    db_id = saved_db[get_integer(message, 1, len(saved_db)) - 1]
+    return db_id, get_metadata(db_id)
 
 
 def get_client():
@@ -61,46 +86,56 @@ def get_client():
     return client
 
 
+# endregion
+
+# region Actions
+
+
 def make_backup():
     """Action that performs a backup"""
     # Retrieve the top dialogs
     client = get_client()
-    dialogs, displays, inputs = client.get_dialogs(10)
+    dialogs, entities = client.get_dialogs(10)
 
     # Display them so the user can choose
-    for i, display in enumerate(displays):
-        print('{}. {}'.format(i+1, display))
+    for i, entity in enumerate(entities):
+        print('{}. {}'.format(i+1, get_display_name(entity)))
 
     # Let the user decide who they want to backup
     i = int(input('What chat do you want to backup (0 to exit)?: ')) - 1
 
     if 0 <= i < 10:
         # Retrieve the selected user
-        display = displays[i]
-        input_peer = inputs[i]
+        name = get_display_name(entities[i])
+        input_peer = get_input_peer(entities[i])
 
         backuper = Backuper(client)
-        backuper.begin_backup(input_peer=input_peer, peer_name=display)
+        backuper.begin_backup(input_peer=input_peer, peer_name=name)
 
     print('Exiting...')
     client.disconnect()
 
 
+def download_media():
+    # Prompt the user from what backup they want to download the media
+    db_id, metadata = prompt_pick_backup('From which backup do you wish to download its media?: ')
+    dl_propics = input('Do you want to download profile photos (y/n)?: ').lower() == 'y'
+    dl_photos = input('Do you want to download photos (y/n)?: ').lower() == 'y'
+    dl_documents = input('Do you want to download documents (y/n)?: ').lower() == 'y'
+
+    client = get_client()
+    backuper = Backuper(client)
+    backuper.begin_backup_media('backups/{}.tlo'.format(db_id),
+                                dl_propics=dl_propics,
+                                dl_photos=dl_photos,
+                                dl_documents=dl_documents)
+
+
 def export_html():
     """Action that exports a backup to HTML"""
-    # First load all the saved databases (splitting extension and path)
-    saved_db = [path.splitext(path.split(f)[1])[0] for f in glob('backups/*.tlo')]
 
-    # Then ask the user who they want to export
-    print('Available exportable databases:')
-    for i, db_id in enumerate(saved_db):
-        metadata = get_metadata(db_id)
-        print('{}. {}, ID: {}'.format(i + 1,
-                                      metadata.get('peer_name', '???'),
-                                      db_id))
-
-    db_id = saved_db[get_integer('Which one do you want to export?: ', 1, len(saved_db)) - 1]
-    metadata = get_metadata(db_id)
+    # Prompt the user which backup they want to export
+    db_id, metadata = prompt_pick_backup('Which one do you want to export?: ')
     backup_name = input('How do you want to name the backup (defaults to {}): '
                         .format(metadata.get('peer_name', 'unnamed')))
 
@@ -110,8 +145,13 @@ def export_html():
     # Then finally export
     Exporter().export('backups/{}.tlo'.format(db_id), name=backup_name)
 
+
+
+# endregion
+
 options = (
     ('Make a backup of a conversation', make_backup),
+    ('Download media from an existing backup', download_media),
     ('Export a backup into HTML format', export_html),
     ('Exit', None),
 )
