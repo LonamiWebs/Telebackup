@@ -7,6 +7,9 @@ from telethon.utils import get_display_name, get_input_peer
 from backuper import Backuper
 from exporter.exporter import Exporter
 
+from gui.main import start_app
+from gui.windows.welcome import WelcomeWindow
+
 
 # region Utils
 
@@ -158,6 +161,8 @@ options = (
 
 
 def main():
+    start_app(WelcomeWindow)
+    return
     print('Welcome to Telebackup, please select an option:')
     for i, option_method in enumerate(options):
         option, method = option_method
