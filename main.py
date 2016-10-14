@@ -109,7 +109,7 @@ def make_backup():
         name = get_display_name(entities[i])
         input_peer = get_input_peer(entities[i])
 
-        backuper = Backuper(client)
+        backuper = Backuper(client, Backuper.get_peer_id(input_peer))
         backuper.begin_backup(input_peer=input_peer, peer_name=name)
 
     print('Exiting...')

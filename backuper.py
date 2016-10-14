@@ -20,9 +20,13 @@ class Backuper:
 
     # region Initialize
 
-    def __init__(self, client, download_delay=1, download_chunk_size=100, backups_dir='backups'):
+    def __init__(self, client, peer_id,
+                 download_delay=1,
+                 download_chunk_size=100,
+                 backups_dir='backups'):
         """
         :param client:              An initialized TelegramClient, which will be used to download the messages
+        :param peer_id:             The ID of the peer for the backup
         :param download_delay:      The download delay, in seconds, after a message chunk is downloaded
         :param download_chunk_size: The chunk size (i.e. how many messages do we download every time)
                                     The maximum allowed by Telegram is 100
@@ -31,7 +35,10 @@ class Backuper:
         self.client = client
         self.download_delay = download_delay
         self.download_chunk_size = download_chunk_size
-        self.backups_dir = backups_dir
+        self.backups_dir = path.join(backups_dir, str(peer_id))
+
+        # Ensure the directory for the backups
+        makedirs(self.backups_dir, exist_ok=True)
 
         self.db = None  # This will be loaded later
 
@@ -51,19 +58,18 @@ class Backuper:
 
     def save_metadata(self, peer, peer_name, resume_msg_id):
         """Saves the metadata for the current peer"""
-        peer_id = self.get_peer_id(peer)
-        with open(path.join(self.backups_dir, '{}.meta'.format(peer_id)), 'w') as file:
+        with open(path.join(self.backups_dir, 'metadata'), 'w') as file:
             json.dump({
-                'peer_id': peer_id,
+                'peer_id': self.get_peer_id(peer),
                 'peer_name': peer_name,
                 'peer_constructor': peer.constructor_id,
                 'resume_msg_id': resume_msg_id,
                 'scheme_layer': scheme_layer
             }, file)
 
-    def load_metadata(self, peer_id):
+    def load_metadata(self):
         """Loads the metadata of the current peer"""
-        file_path = path.join(self.backups_dir, '{}.meta'.format(peer_id))
+        file_path = path.join(self.backups_dir, 'metadata')
         if not path.isfile(file_path):
             return None
         else:
@@ -81,23 +87,18 @@ class Backuper:
 
         return directories
 
-
     # region Making backups
 
     def begin_backup(self, input_peer, peer_name):
         """Begins the backup on the given peer"""
 
-        # Ensure the directory for the
-        makedirs(self.backups_dir, exist_ok=True)
-
         # Create a connection to the database
-        peer_id = self.get_peer_id(input_peer)
-        db_file = path.join(self.backups_dir, '{}.tlo'.format(peer_id))
+        db_file = path.join(self.backups_dir, 'backup.sqlite')
         self.db = TLDatabase(db_file)
 
         # Load the previous data
         # We need to know the latest message ID so we can resume the backup
-        metadata = self.load_metadata(peer_id)
+        metadata = self.load_metadata()
         if metadata:
             last_id = metadata.get('resume_msg_id')
             # Do not check for the scheme layers to be the same,
@@ -185,7 +186,6 @@ class Backuper:
             # Also commit here, we don't want to lose any information!
             self.db.commit()
             self.save_metadata(peer=input_peer, peer_name=peer_name, resume_msg_id=last_id)
-
 
     def begin_backup_media(self, db_file, dl_propics, dl_photos, dl_documents):
         propics_dir, photos_dir, documents_dir, stickers_dir = \
