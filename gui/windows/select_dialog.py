@@ -30,7 +30,7 @@ class SelectDialogWindow(tk.Frame):
         # and here we get a callback when the user hits return.
         # we will have the program print out the value of the
         # application variable when the user hits return
-        self.search_box.bind('<KeyRelease>', self.search)
+        self.search_box.bind('<Key>', self.search)
 
         # Search box
 
@@ -48,21 +48,6 @@ class SelectDialogWindow(tk.Frame):
 
     def search(self, *args):
         self.update_conversation_list()
-
-
-
-    """
-            self.hi_there = tk.Button(self)
-            self.hi_there["text"] = "Hello World\n(click me)"
-            self.hi_there["command"] = self.say_hi
-            self.hi_there.pack(side="top")
-
-            self.quit = tk.Button(self, text="QUIT", fg="red",
-                                  command=self.master.destroy)
-            self.quit.pack(side="bottom")
-
-
-    """
 
     def say_hi(self):
         print("hi there, everyone!")

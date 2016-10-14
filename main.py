@@ -9,6 +9,7 @@ from exporter.exporter import Exporter
 
 from gui.main import start_app
 from gui.windows.welcome import WelcomeWindow
+from gui.windows.login import LoginWindow
 
 
 # region Utils
@@ -161,7 +162,7 @@ options = (
 
 
 def main():
-    start_app(WelcomeWindow)
+    start_app(LoginWindow)
     return
     print('Welcome to Telebackup, please select an option:')
     for i, option_method in enumerate(options):
