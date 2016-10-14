@@ -17,20 +17,29 @@ class LoginWindow(tk.Frame):
         self.create_widgets()
 
     def create_widgets(self):
+        # These have a single column
         # Welcome label
         self.info_content = tk.StringVar()
         self.info_content.set("We've sent you a code via Telegram since this is the first time.\n"
                               "Please enter it below to login (in order to use this program):")
-        self.info = tk.Label(self, textvariable=self.info_content)
+        self.info = tk.Label(self, textvariable=self.info_content, padx=10, pady=10)
         self.info.pack()
 
+        # Next step
+        self.next = tk.Button(self,
+                              text='Validate code',
+                              command=self.login,
+                              state=tk.DISABLED)
+        self.next.pack(side=tk.BOTTOM, fill=tk.X)
+
+        # These have more than one column
         # Paste code button
         self.paste = tk.Button(self,
                                image=load_png('clipboard'),
                                width='16',
                                height='16',
                                command=self.paste_code)
-        self.paste.pack(side=tk.RIGHT, anchor=tk.N)
+        self.paste.pack(side=tk.RIGHT, anchor=tk.NW, pady=10)
 
         # Erase code button
         self.erase = tk.Button(self,
@@ -38,19 +47,13 @@ class LoginWindow(tk.Frame):
                                width='16',
                                height='16',
                                command=self.clear_code)
-        self.erase.pack(side=tk.RIGHT, anchor=tk.N)
+        self.erase.pack(side=tk.RIGHT, anchor=tk.NW, pady=10)
 
         # Backup chat
         self.code = tk.Entry(self)
         self.code.bind('<KeyRelease>', self.validate_code_input)
-        self.code.pack()
+        self.code.pack(fill=tk.X, pady=10)
 
-        # Next step
-        self.next = tk.Button(self,
-                              text='Validate code',
-                              command=self.login,
-                              state=tk.DISABLED)
-        self.next.pack()
 
     def validate_code_input(self, event=None):
         """Validates the code input to enable the Next button"""
