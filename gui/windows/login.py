@@ -7,8 +7,11 @@ code_length = 5
 
 
 class LoginWindow(tk.Frame):
-    def __init__(self, master=None):
+    def __init__(self, master=None, **args):
         super().__init__(master)
+
+        self.client = args['client']
+        self.phone = args['phone']
 
         self.master.title("Telebackup")
         self.master.maxsize(1000, 480)
@@ -64,8 +67,9 @@ class LoginWindow(tk.Frame):
             self.code.delete(code_length, tk.END)
             code = self.code.get()
 
-        # Then check if it's right
-        if len(code) == code_length and str.isdigit(code):
+        # Then check if it's right (or the user is authorized)
+        if (len(code) == code_length and str.isdigit(code) or
+                self.client.is_user_authorized()):
             self.next.config(state=tk.NORMAL)
         else:
             self.next.config(state=tk.DISABLED)
@@ -91,6 +95,10 @@ class LoginWindow(tk.Frame):
 
     def login(self):
         """Starts the login process"""
-        code = self.code.get()
-        code = int(code)
-        self.info_content.set('Logging in... please wait.')
+        if not self.client.is_user_authorized():
+            code = self.code.get()
+            self.info_content.set('Logging in... please wait.')
+            self.client.sign_in(self.phone, code)
+            self.info_content.set('Logged in successfully! Click Next to continue.')
+        else:
+            self.master.destroy()
