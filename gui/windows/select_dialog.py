@@ -25,26 +25,42 @@ class SelectDialogWindow(tk.Frame):
         # Welcome label
         self.welcome = tk.Label(self,
                                 text='Please select a conversation:')
-        self.welcome.pack()
+        self.welcome.grid(row=0, columnspan=2)
 
         # Scroll bar for the list
         self.scrollbar = tk.Scrollbar(self)
-        self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
         # Conversations list
         self.conversation_list = tk.Listbox(self, yscrollcommand=self.scrollbar.set)
+        self.conversation_list.bind("<Double-Button-1>", self.on_next)
         self.scrollbar.config(command=self.conversation_list.yview)
-        self.conversation_list.pack()
+
+        self.conversation_list.grid(row=1, column=0)
+        self.scrollbar.grid(row=1, column=1, sticky=tk.NS)
 
         # Search box
-        self.search_box = tk.Entry()
-        self.search_box.pack()
+        self.search_box = tk.Entry(self)
         self.search_box.bind('<KeyPress>', self.search)
+        self.search_box.grid(row=2, columnspan=2, sticky=tk.EW)
 
         # Next button
         self.next = tk.Button(self,
-                              text='Next')
-        self.next.pack(side=tk.BOTTOM, fill=tk.X)
+                              text='Next',
+                              command=self.on_next)
+        self.next.grid(row=3, columnspan=2, sticky=tk.EW)
+
+    def on_next(self, event=None):
+        selection = self.conversation_list.curselection()
+        if selection:
+            index = selection[0]
+            value = self.conversation_list.get(index)
+
+            # Search for the matching entity (user or chat)
+            # TODO Note that this will NOT work if they have the exact same name!
+            for entity in self.entities:
+                display = sanitize_string(get_display_name(entity))
+                if value == display:
+                    print('We got our entity', str(entity))
 
     def update_conversation_list(self):
         search = self.search_box.get().lower()
