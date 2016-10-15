@@ -8,6 +8,9 @@ from gui.main import start_app
 from gui.windows.login import LoginWindow
 
 
+cached_client = None
+
+
 def load_settings(path='api/settings'):
     """Loads the user settings located under `api/`"""
     settings = {}
@@ -22,6 +25,11 @@ def load_settings(path='api/settings'):
                 settings[left] = right
 
     return settings
+
+
+def sanitize_string(string):
+    """Sanitizes a string for it to be between U+0000 and U+FFFF"""
+    return ''.join(c for c in string if ord(c) <= 0xFFFF).strip()
 
 
 def get_integer(message, minimum, maximum):
@@ -62,21 +70,23 @@ def prompt_pick_backup(message):
     return db_id, get_metadata(db_id)
 
 
-def get_client():
+def get_cached_client():
     """Gets an authorized TelegramClient, performing
        the authorization process if it's the first time"""
-    print('Loading client...')
-    settings = load_settings()
-    client = TelegramClient(session_user_id=settings.get('session_name', 'anonymous'),
-                            api_id=settings['api_id'],
-                            api_hash=settings['api_hash'])
-    client.connect()
+    global cached_client
+    if not cached_client:
+        print('Loading client...')
+        settings = load_settings()
+        cached_client = TelegramClient(session_user_id=settings.get('session_name', 'anonymous'),
+                                api_id=settings['api_id'],
+                                api_hash=settings['api_hash'])
+        cached_client.connect()
 
-    # Then, ensure we're authorized and have access
-    if not client.is_user_authorized():
-        print('First run, client not authorized. Sending code request.')
-        client.send_code_request(str(settings['user_phone']))
-        start_app(LoginWindow, client=client, phone=settings['user_phone'])
+        # Then, ensure we're authorized and have access
+        if not cached_client.is_user_authorized():
+            print('First run, client not authorized. Sending code request.')
+            cached_client.send_code_request(str(settings['user_phone']))
+            start_app(LoginWindow, client=cached_client, phone=settings['user_phone'])
 
-    print('Client loaded and authorized.')
-    return client
+        print('Client loaded and authorized.')
+    return cached_client

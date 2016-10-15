@@ -1,11 +1,25 @@
 import tkinter as tk
 
+from telethon.utils import get_display_name
+
+from utils import get_cached_client, sanitize_string
+
+
 class SelectDialogWindow(tk.Frame):
     def __init__(self, master=None, **args):
         super().__init__(master)
+
+        self.master.title('Select a conversation')
+
+        self.client = get_cached_client()
+
         self.pack()
         self.create_widgets()
+
+        print('Loading dialogs...')
+        self.dialogs, self.entities = self.client.get_dialogs(count=50)
         self.update_conversation_list()
+        print('Dialogs loaded.')
 
     def create_widgets(self):
         # Welcome label
@@ -19,35 +33,27 @@ class SelectDialogWindow(tk.Frame):
 
         # Conversations list
         self.conversation_list = tk.Listbox(self, yscrollcommand=self.scrollbar.set)
+        self.scrollbar.config(command=self.conversation_list.yview)
         self.conversation_list.pack()
 
+        # Search box
         self.search_box = tk.Entry()
         self.search_box.pack()
+        self.search_box.bind('<KeyPress>', self.search)
 
-        self.search_box['textvariable'] = 'hi'
-        self.search_box.textvariable = 'lol'
-
-        # and here we get a callback when the user hits return.
-        # we will have the program print out the value of the
-        # application variable when the user hits return
-        self.search_box.bind('<Key>', self.search)
-
-        # Search box
+        # Next button
+        self.next = tk.Button(self,
+                              text='Next')
+        self.next.pack(side=tk.BOTTOM, fill=tk.X)
 
     def update_conversation_list(self):
-        items = ['Hello', 'Hella', 'Yay', 'Yoy', 'You', 'Kek', 'Lol', 'Loool', 'Lool']
-
         search = self.search_box.get().lower()
         self.conversation_list.delete(0, tk.END)
 
-        for item in items:
-            if search in item.lower():
-                self.conversation_list.insert(tk.END, item)
-
-        pass
+        for entity in self.entities:
+            display = sanitize_string(get_display_name(entity))
+            if search in display.lower():
+                self.conversation_list.insert(tk.END, display)
 
     def search(self, *args):
         self.update_conversation_list()
-
-    def say_hi(self):
-        print("hi there, everyone!")

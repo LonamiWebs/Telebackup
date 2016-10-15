@@ -54,7 +54,3 @@ class WelcomeWindow(tk.Frame):
     def show_select_dialog(self):
         self.master.destroy()
         start_app(SelectDialogWindow)
-
-
-    def say_hi(self):
-        print("hi there, everyone!")

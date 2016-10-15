@@ -100,5 +100,6 @@ class LoginWindow(tk.Frame):
             self.info_content.set('Logging in... please wait.')
             self.client.sign_in(self.phone, code)
             self.info_content.set('Logged in successfully! Click Next to continue.')
+            self.next.config(text='Next')
         else:
             self.master.destroy()
