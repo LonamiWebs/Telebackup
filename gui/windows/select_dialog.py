@@ -2,6 +2,8 @@ import tkinter as tk
 
 from telethon.utils import get_display_name
 
+from gui.main import start_app
+from gui.windows.backup import BackupWindow
 from utils import get_cached_client, sanitize_string
 
 
@@ -16,6 +18,11 @@ class SelectDialogWindow(tk.Frame):
         self.pack()
         self.create_widgets()
 
+        # Load dialogs async
+        self.after(ms=0, func=self.on_load)
+
+    def on_load(self):
+        """Event that occurs after the window has loaded"""
         print('Loading dialogs...')
         self.dialogs, self.entities = self.client.get_dialogs(count=50)
         self.update_conversation_list()
@@ -60,7 +67,8 @@ class SelectDialogWindow(tk.Frame):
             for entity in self.entities:
                 display = sanitize_string(get_display_name(entity))
                 if value == display:
-                    print('We got our entity', str(entity))
+                    self.master.destroy()
+                    start_app(BackupWindow, entity=entity)
 
     def update_conversation_list(self):
         search = self.search_box.get().lower()
