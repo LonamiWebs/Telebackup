@@ -18,8 +18,8 @@ class SelectDialogWindow(tk.Frame):
         self.pack()
         self.create_widgets()
 
-        # Load dialogs async
-        self.after(ms=0, func=self.on_load)
+        # Load dialogs after the window has loaded (arbitrary 100ms)
+        self.after(ms=100, func=self.on_load)
 
     def on_load(self):
         """Event that occurs after the window has loaded"""

@@ -1,5 +1,6 @@
 import tkinter as tk
 
+from PIL import ImageTk, Image
 from telethon.utils import get_display_name
 
 from utils import get_cached_client, sanitize_string
@@ -24,7 +25,7 @@ class EntityCard(tk.Frame):
 
         # Set up our custom widget
         self.profile_picture = tk.Label(self)
-        self.profile_picture.grid(row=0, column=0)
+        self.profile_picture.grid(row=0, column=0, sticky=tk.NSEW)
 
         self.right_column = tk.Frame(self)
         self.right_column.grid(row=0, column=1)
@@ -54,8 +55,10 @@ class EntityCard(tk.Frame):
 
     def update_profile_photo(self, photo_file):
         """Updates the profile photo"""
-        self.profile_picture_photo = tk.PhotoImage(photo_file)
-        self.profile_picture.config(image=self.profile_picture)
+        self.profile_picture_photo = ImageTk.PhotoImage(
+            Image.open(photo_file).resize((64, 64), Image.ANTIALIAS))
+
+        self.profile_picture.config(image=self.profile_picture_photo)
 
     def update_msg_count(self, count):
         """Updates the message count"""

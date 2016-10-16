@@ -5,6 +5,11 @@ The application's main purpose is to backup any conversation from Telegram, and 
 Please note that a lot needs to be done! This application also requires the `telethon` module, installable via `pip`.
 This application also has the exact same setup as `telethon` (copy `settings_example` to `settings` and fill in your values).
 
+## Requirements
+You need the following Python packages in order for Telebackup to work:
+- `telethon` ([GitHub](https://github.com/LonamiWebs/Telethon), [PyPi](https://pypi.python.org/pypi/Telethon/))
+- `pillow` ([GitHub](https://github.com/python-pillow/Pillow/), [PyPi](https://pypi.python.org/pypi/Pillow/))
+
 ## Important notes
 Please note that this program will **not** update those messages which were edited (as of now)! This is, after you
 backup a conversation, if you edit messages which were included in the backup, they will not be updated.

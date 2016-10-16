@@ -4,7 +4,7 @@ from datetime import timedelta
 from os import makedirs, path
 
 from telethon import RPCError
-from telethon.utils import get_display_name, get_extension
+from telethon.utils import get_display_name, get_extension, get_input_peer
 from telethon.tl.functions.messages import GetHistoryRequest
 from telethon.tl.types import MessageMediaPhoto, MessageMediaDocument
 
@@ -20,22 +20,24 @@ class Backuper:
 
     # region Initialize
 
-    def __init__(self, client, peer_id,
+    def __init__(self, client, entity,
                  download_delay=1,
                  download_chunk_size=100,
                  backups_dir='backups'):
         """
         :param client:              An initialized TelegramClient, which will be used to download the messages
-        :param peer_id:             The ID of the peer for the backup
+        :param entity:              The entity (user, chat or channel) from which the backup will be made
         :param download_delay:      The download delay, in seconds, after a message chunk is downloaded
         :param download_chunk_size: The chunk size (i.e. how many messages do we download every time)
                                     The maximum allowed by Telegram is 100
         :param backups_dir:         Where the backups will be stored
         """
         self.client = client
+        self.entity = entity
+
         self.download_delay = download_delay
         self.download_chunk_size = download_chunk_size
-        self.backups_dir = path.join(backups_dir, str(peer_id))
+        self.backups_dir = path.join(backups_dir, str(entity.id))
 
         # Ensure the directory for the backups
         makedirs(self.backups_dir, exist_ok=True)
@@ -44,25 +46,13 @@ class Backuper:
 
     # endregion
 
-    @staticmethod
-    def get_peer_id(peer):
-        """Gets the peer ID for a given peer (which can be an user, a chat or a channel)
-           If the peer is neither of these, no error will be rose"""
-        peer_id = getattr(peer, 'user_id', None)
-        if not peer_id:
-            peer_id = getattr(peer, 'chat_id', None)
-            if not peer_id:
-                peer_id = getattr(peer, 'channel_id', None)
-
-        return peer_id
-
-    def save_metadata(self, peer, peer_name, resume_msg_id):
+    def save_metadata(self, resume_msg_id):
         """Saves the metadata for the current peer"""
         with open(path.join(self.backups_dir, 'metadata'), 'w') as file:
             json.dump({
-                'peer_id': self.get_peer_id(peer),
-                'peer_name': peer_name,
-                'peer_constructor': peer.constructor_id,
+                'entity_id': self.entity.id,
+                'entity_name': get_display_name(self.entity),
+                'entity_constructor': self.entity.constructor_id,
                 'resume_msg_id': resume_msg_id,
                 'scheme_layer': scheme_layer
             }, file)
@@ -89,7 +79,17 @@ class Backuper:
 
     # region Making backups
 
-    def begin_backup(self, input_peer, peer_name):
+    def backup_propic(self):
+        """Backups the profile picture for the given
+           entity as the current peer profile picture, returning its path"""
+        output = path.join(self.backups_dir, 'propic.jpg')
+        self.client.download_profile_photo(self.entity.photo,
+                                           file_path=output,
+                                           add_extension=False)
+
+        return output
+
+    def begin_backup(self):
         """Begins the backup on the given peer"""
 
         # Create a connection to the database
@@ -121,6 +121,7 @@ class Backuper:
 
         # Make the backup
         try:
+            input_peer = get_input_peer(self.entity)
             while True:
                 result = self.client.invoke(GetHistoryRequest(
                     peer=input_peer,
@@ -155,7 +156,7 @@ class Backuper:
 
                 # Always commit at the end to save changes
                 self.db.commit()
-                self.save_metadata(peer=input_peer, peer_name=peer_name, resume_msg_id=last_id)
+                self.save_metadata(resume_msg_id=last_id)
 
                 if result.messages:
                     # We downloaded and added more messages, so print progress
@@ -185,7 +186,7 @@ class Backuper:
             print('Operation cancelled, not downloading more messages!')
             # Also commit here, we don't want to lose any information!
             self.db.commit()
-            self.save_metadata(peer=input_peer, peer_name=peer_name, resume_msg_id=last_id)
+            self.save_metadata(resume_msg_id=last_id)
 
     def begin_backup_media(self, db_file, dl_propics, dl_photos, dl_documents):
         propics_dir, photos_dir, documents_dir, stickers_dir = \

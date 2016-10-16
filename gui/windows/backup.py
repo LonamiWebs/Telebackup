@@ -1,8 +1,10 @@
 import tkinter as tk
+from threading import Thread
 from tkinter import ttk
 
-from telethon.utils import get_display_name
+from telethon.utils import get_display_name, get_input_peer
 
+from backuper import Backuper
 from gui.widgets.entity_card import EntityCard
 from utils import get_cached_client, sanitize_string
 
@@ -14,12 +16,20 @@ class BackupWindow(tk.Frame):
         self.entity = args['entity']
         self.display = sanitize_string(get_display_name(self.entity))
 
-        self.master.title('Backup with {}'.format(self.display))
-
         self.client = get_cached_client()
+        self.backuper = Backuper(self.client, self.entity)
+
+        self.master.title('Backup with {}'.format(self.display))
 
         self.pack()
         self.create_widgets()
+
+        # Download the profile picture in a different thread
+        Thread(target=self.dl_propic).start()
+
+    def dl_propic(self):
+        photo_path = self.backuper.backup_propic()
+        self.entity_card.update_profile_photo(photo_path)
 
     def create_widgets(self):
         # Title label
