@@ -2,6 +2,7 @@ import tkinter as tk
 
 from telethon.utils import get_display_name
 
+from backuper import Backuper
 from gui.main import start_app
 from gui.windows.backup import BackupWindow
 from utils import get_cached_client, sanitize_string
@@ -18,13 +19,22 @@ class SelectDialogWindow(tk.Frame):
         self.pack()
         self.create_widgets()
 
+        # First load previous backups entities
+        self.entities = list(Backuper.enumerate_backups_entites())
+        self.update_conversation_list()
+
         # Load dialogs after the window has loaded (arbitrary 100ms)
         self.after(ms=100, func=self.on_load)
 
     def on_load(self):
         """Event that occurs after the window has loaded"""
         print('Loading dialogs...')
-        self.dialogs, self.entities = self.client.get_dialogs(count=50)
+
+        # Do not add an entity twice
+        for entity in self.client.get_dialogs(count=50)[1]:
+            if not any(e for e in self.entities if e.id == entity.id):
+                self.entities.append(entity)
+
         self.update_conversation_list()
         print('Dialogs loaded.')
 

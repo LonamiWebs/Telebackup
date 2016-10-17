@@ -31,32 +31,34 @@ class EntityCard(tk.Frame):
         self.right_column.grid(row=0, column=1)
 
         self.name_label = tk.Label(self.right_column,
-                                   text=sanitize_string(get_display_name(self.entity)))
-        self.name_label.grid(row=0)
+                                   text=sanitize_string(get_display_name(self.entity)),
+                                   font='-weight bold -size 14')
+        self.name_label.grid(row=0, sticky=tk.W)
 
         if hasattr(self.entity, 'username'):
             self.username_label = tk.Label(self.right_column,
-                                           text='@{}'.format(self.entity.username))
-            self.username_label.grid(row=1)
+                                           text='@{}'.format(self.entity.username),
+                                           font='-size 12')
+            self.username_label.grid(row=1, sticky=tk.W)
 
         if hasattr(self.entity, 'phone'):
             self.phone_label = tk.Label(self.right_column,
                                         text='+{}'.format(self.entity.phone))
-            self.phone_label.grid(row=2)
+            self.phone_label.grid(row=2, sticky=tk.W)
 
         elif hasattr(self.entity, 'participants_count'):
             self.participants_label = tk.Label(self.right_column,
                                                text='{} participants'.format(self.entity.participants_count))
-            self.participants_label.grid(row=2)
+            self.participants_label.grid(row=2, sticky=tk.W)
 
         self.msg_count_label = tk.Label(self.right_column,
                                         text='??? messages')
-        self.msg_count_label.grid(row=3)
+        self.msg_count_label.grid(row=3, sticky=tk.W)
 
     def update_profile_photo(self, photo_file):
         """Updates the profile photo"""
         self.profile_picture_photo = ImageTk.PhotoImage(
-            Image.open(photo_file).resize((64, 64), Image.ANTIALIAS))
+            Image.open(photo_file).resize((128, 128), Image.ANTIALIAS))
 
         self.profile_picture.config(image=self.profile_picture_photo)
 

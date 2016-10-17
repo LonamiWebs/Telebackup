@@ -1,12 +1,15 @@
 import json
 from time import sleep
 from datetime import timedelta
-from os import makedirs, path
+from os import makedirs, path, listdir
 
+from os.path import isfile, isdir
 from telethon import RPCError
-from telethon.utils import get_display_name, get_extension, get_input_peer
 from telethon.tl.functions.messages import GetHistoryRequest
 from telethon.tl.types import MessageMediaPhoto, MessageMediaDocument
+from telethon.utils import \
+    BinaryReader, BinaryWriter, \
+    get_display_name, get_extension, get_input_peer
 
 from tl_database import TLDatabase
 
@@ -18,37 +21,65 @@ del all_tlobjects
 
 class Backuper:
 
+    backups_dir = 'backups'
+
     # region Initialize
 
     def __init__(self, client, entity,
                  download_delay=1,
-                 download_chunk_size=100,
-                 backups_dir='backups'):
+                 download_chunk_size=100):
         """
         :param client:              An initialized TelegramClient, which will be used to download the messages
         :param entity:              The entity (user, chat or channel) from which the backup will be made
         :param download_delay:      The download delay, in seconds, after a message chunk is downloaded
         :param download_chunk_size: The chunk size (i.e. how many messages do we download every time)
                                     The maximum allowed by Telegram is 100
-        :param backups_dir:         Where the backups will be stored
         """
         self.client = client
         self.entity = entity
 
         self.download_delay = download_delay
         self.download_chunk_size = download_chunk_size
-        self.backups_dir = path.join(backups_dir, str(entity.id))
+        self.backup_dir = path.join(Backuper.backups_dir, str(entity.id))
+        self.propic_path = path.join(self.backup_dir, 'propic.jpg')
 
         # Ensure the directory for the backups
-        makedirs(self.backups_dir, exist_ok=True)
+        makedirs(self.backup_dir, exist_ok=True)
+
+        # Pickle the entity
+        with open(path.join(self.backup_dir, 'entity.tlo'), 'wb') as file:
+            with BinaryWriter(file) as writer:
+                entity.on_send(writer)
 
         self.db = None  # This will be loaded later
 
     # endregion
 
+    @staticmethod
+    def enumerate_backups_entites():
+        """Enumerates the entities of all the available backups"""
+        if isdir(Backuper.backups_dir):
+
+            # Look for subdirectories
+            for directory in listdir(Backuper.backups_dir):
+                entity_file = path.join(Backuper.backups_dir, directory, 'entity.tlo')
+
+                # Ensure the entity.pickle file exists
+                if isfile(entity_file):
+
+                    # Load and yield it
+                    with open(entity_file, 'rb') as file:
+                        with BinaryReader(stream=file) as reader:
+                            yield reader.tgread_object()
+        # End of the function
+
+    @staticmethod
+    def exists_backup(entity_id):
+        return isdir(path.join(Backuper.backups_dir, str(entity_id)))
+
     def save_metadata(self, resume_msg_id):
-        """Saves the metadata for the current peer"""
-        with open(path.join(self.backups_dir, 'metadata'), 'w') as file:
+        """Saves the metadata for the current entity"""
+        with open(path.join(self.backup_dir, 'metadata.json'), 'w') as file:
             json.dump({
                 'entity_id': self.entity.id,
                 'entity_name': get_display_name(self.entity),
@@ -58,8 +89,8 @@ class Backuper:
             }, file)
 
     def load_metadata(self):
-        """Loads the metadata of the current peer"""
-        file_path = path.join(self.backups_dir, 'metadata')
+        """Loads the metadata of the current entity"""
+        file_path = path.join(self.backup_dir, 'metadata.json')
         if not path.isfile(file_path):
             return None
         else:
@@ -71,7 +102,7 @@ class Backuper:
            documents and stickers backups directories, creating them too"""
         directories = []
         for directory in ('profile_photos', 'photos', 'documents', 'stickers'):
-            current = path.join(self.backups_dir, 'media', directory)
+            current = path.join(self.backup_dir, 'media', directory)
             makedirs(current, exist_ok=True)
             directories.append(current)
 
@@ -79,21 +110,22 @@ class Backuper:
 
     # region Making backups
 
+    # TODO manage multiple photo versions in another subdirectory,
+    # with a method to get the latest path
     def backup_propic(self):
         """Backups the profile picture for the given
            entity as the current peer profile picture, returning its path"""
-        output = path.join(self.backups_dir, 'propic.jpg')
         self.client.download_profile_photo(self.entity.photo,
-                                           file_path=output,
+                                           file_path=self.propic_path,
                                            add_extension=False)
 
-        return output
+        return self.propic_path
 
     def begin_backup(self):
         """Begins the backup on the given peer"""
 
         # Create a connection to the database
-        db_file = path.join(self.backups_dir, 'backup.sqlite')
+        db_file = path.join(self.backup_dir, 'backup.sqlite')
         self.db = TLDatabase(db_file)
 
         # Load the previous data
