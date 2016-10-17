@@ -27,33 +27,33 @@ class EntityCard(tk.Frame):
         self.profile_picture = tk.Label(self)
         self.profile_picture.grid(row=0, column=0, sticky=tk.NSEW)
 
-        self.right_column = tk.Frame(self)
+        self.right_column = tk.Frame(self, padx=16)
         self.right_column.grid(row=0, column=1)
 
         self.name_label = tk.Label(self.right_column,
                                    text=sanitize_string(get_display_name(self.entity)),
                                    font='-weight bold -size 14')
-        self.name_label.grid(row=0, sticky=tk.W)
+        self.name_label.grid(row=0, sticky=tk.NW)
 
         if hasattr(self.entity, 'username'):
             self.username_label = tk.Label(self.right_column,
                                            text='@{}'.format(self.entity.username),
                                            font='-size 12')
-            self.username_label.grid(row=1, sticky=tk.W)
+            self.username_label.grid(row=1, sticky=tk.NW)
 
         if hasattr(self.entity, 'phone'):
             self.phone_label = tk.Label(self.right_column,
                                         text='+{}'.format(self.entity.phone))
-            self.phone_label.grid(row=2, sticky=tk.W)
+            self.phone_label.grid(row=2, sticky=tk.NW)
 
         elif hasattr(self.entity, 'participants_count'):
             self.participants_label = tk.Label(self.right_column,
                                                text='{} participants'.format(self.entity.participants_count))
-            self.participants_label.grid(row=2, sticky=tk.W)
+            self.participants_label.grid(row=2, sticky=tk.NW)
 
         self.msg_count_label = tk.Label(self.right_column,
                                         text='??? messages')
-        self.msg_count_label.grid(row=3, sticky=tk.W)
+        self.msg_count_label.grid(row=3, sticky=tk.NW)
 
     def update_profile_photo(self, photo_file):
         """Updates the profile photo"""
