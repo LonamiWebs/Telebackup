@@ -1,4 +1,5 @@
-import tkinter as tk
+from tkinter import *
+from tkinter.ttk import *
 
 from telethon.utils import get_display_name
 
@@ -8,7 +9,7 @@ from gui.windows.backup import BackupWindow
 from utils import get_cached_client, sanitize_string
 
 
-class SelectDialogWindow(tk.Frame):
+class SelectDialogWindow(Frame):
     def __init__(self, master=None, **args):
         super().__init__(master)
 
@@ -40,31 +41,31 @@ class SelectDialogWindow(tk.Frame):
 
     def create_widgets(self):
         # Welcome label
-        self.welcome = tk.Label(self,
+        self.welcome = Label(self,
                                 text='Please select a conversation:')
         self.welcome.grid(row=0, columnspan=2)
 
         # Scroll bar for the list
-        self.scrollbar = tk.Scrollbar(self)
+        self.scrollbar = Scrollbar(self)
 
         # Conversations list
-        self.conversation_list = tk.Listbox(self, yscrollcommand=self.scrollbar.set)
+        self.conversation_list = Listbox(self, yscrollcommand=self.scrollbar.set)
         self.conversation_list.bind("<Double-Button-1>", self.on_next)
         self.scrollbar.config(command=self.conversation_list.yview)
 
         self.conversation_list.grid(row=1, column=0)
-        self.scrollbar.grid(row=1, column=1, sticky=tk.NS)
+        self.scrollbar.grid(row=1, column=1, sticky=NS)
 
         # Search box
-        self.search_box = tk.Entry(self)
+        self.search_box = Entry(self)
         self.search_box.bind('<KeyPress>', self.search)
-        self.search_box.grid(row=2, columnspan=2, sticky=tk.EW)
+        self.search_box.grid(row=2, columnspan=2, sticky=EW)
 
         # Next button
-        self.next = tk.Button(self,
+        self.next = Button(self,
                               text='Next',
                               command=self.on_next)
-        self.next.grid(row=3, columnspan=2, sticky=tk.EW)
+        self.next.grid(row=3, columnspan=2, sticky=EW)
 
     def on_next(self, event=None):
         selection = self.conversation_list.curselection()
@@ -82,12 +83,12 @@ class SelectDialogWindow(tk.Frame):
 
     def update_conversation_list(self):
         search = self.search_box.get().lower()
-        self.conversation_list.delete(0, tk.END)
+        self.conversation_list.delete(0, END)
 
         for entity in self.entities:
             display = sanitize_string(get_display_name(entity))
             if search in display.lower():
-                self.conversation_list.insert(tk.END, display)
+                self.conversation_list.insert(END, display)
 
     def search(self, *args):
         self.update_conversation_list()

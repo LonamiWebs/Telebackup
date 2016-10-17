@@ -1,11 +1,13 @@
-import tkinter as tk
+from tkinter import *
+from tkinter.ttk import *
+
 from gui.widgets.better_entry import BetterEntry
 
 # Telegram code length
 code_length = 5
 
 
-class LoginWindow(tk.Frame):
+class LoginWindow(Frame):
     def __init__(self, master=None, **args):
         super().__init__(master)
 
@@ -21,10 +23,10 @@ class LoginWindow(tk.Frame):
     def create_widgets(self):
         # These have a single column
         # Welcome label
-        self.info_content = tk.StringVar()
+        self.info_content = StringVar()
         self.info_content.set("We've sent you a code via Telegram since this is the first time.\n"
                               "Please enter it below to login (in order to use this program):")
-        self.info = tk.Label(self, textvariable=self.info_content)
+        self.info = Label(self, textvariable=self.info_content)
         self.info.grid(row=0)
 
         self.code = BetterEntry(self,
@@ -34,10 +36,10 @@ class LoginWindow(tk.Frame):
         self.code.grid(row=1)
 
         # Next step
-        self.next = tk.Button(self,
+        self.next = Button(self,
                               text='Validate code',
                               command=self.login,
-                              state=tk.DISABLED)
+                              state=DISABLED)
         self.next.grid(row=2)
 
     def code_on_change(self):
@@ -47,9 +49,9 @@ class LoginWindow(tk.Frame):
         # Then check if it's right (or the user is authorized)
         if (len(code) == code_length and str.isdigit(code) or
                 self.client.is_user_authorized()):
-            self.next.config(state=tk.NORMAL)
+            self.next.config(state=NORMAL)
         else:
-            self.next.config(state=tk.DISABLED)
+            self.next.config(state=DISABLED)
 
     def code_paste_filter(self, clipboard):
         """Clipboard filter for the Telegram code"""
