@@ -29,12 +29,7 @@ class BackupWindow(tk.Frame):
         Thread(target=self.dl_propic).start()
 
     def dl_propic(self):
-        # If a previous photo existed, load it
-        if isfile(self.backuper.propic_path):
-            self.entity_card.update_profile_photo(self.backuper.propic_path)
-
-        photo_path = self.backuper.backup_propic()
-        self.entity_card.update_profile_photo(photo_path)
+        self.entity_card.update_profile_photo(self.backuper.backup_propic())
 
     def create_widgets(self):
         # Title label

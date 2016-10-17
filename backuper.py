@@ -41,15 +41,17 @@ class Backuper:
         self.download_delay = download_delay
         self.download_chunk_size = download_chunk_size
         self.backup_dir = path.join(Backuper.backups_dir, str(entity.id))
-        self.propic_path = path.join(self.backup_dir, 'propic.jpg')
+        self.propics_dir = path.join(self.backup_dir, 'propics')
 
         # Ensure the directory for the backups
         makedirs(self.backup_dir, exist_ok=True)
+        makedirs(self.propics_dir, exist_ok=True)
 
-        # Pickle the entity
+        # Save the entity and load the metadata
         with open(path.join(self.backup_dir, 'entity.tlo'), 'wb') as file:
             with BinaryWriter(file) as writer:
                 entity.on_send(writer)
+        self.metadata = self.load_metadata()
 
         self.db = None  # This will be loaded later
 
@@ -77,22 +79,20 @@ class Backuper:
     def exists_backup(entity_id):
         return isdir(path.join(Backuper.backups_dir, str(entity_id)))
 
-    def save_metadata(self, resume_msg_id):
+    def save_metadata(self):
         """Saves the metadata for the current entity"""
         with open(path.join(self.backup_dir, 'metadata.json'), 'w') as file:
-            json.dump({
-                'entity_id': self.entity.id,
-                'entity_name': get_display_name(self.entity),
-                'entity_constructor': self.entity.constructor_id,
-                'resume_msg_id': resume_msg_id,
-                'scheme_layer': scheme_layer
-            }, file)
+            json.dump(self.metadata, file)
 
     def load_metadata(self):
         """Loads the metadata of the current entity"""
         file_path = path.join(self.backup_dir, 'metadata.json')
         if not path.isfile(file_path):
-            return None
+            return {
+                'resume_msg_id': 0,
+                'total_msgs': 0,
+                'scheme_layer': scheme_layer
+            }
         else:
             with open(file_path, 'r') as file:
                 return json.load(file)
@@ -110,16 +110,26 @@ class Backuper:
 
     # region Making backups
 
-    # TODO manage multiple photo versions in another subdirectory,
-    # with a method to get the latest path
     def backup_propic(self):
         """Backups the profile picture for the given
            entity as the current peer profile picture, returning its path"""
-        self.client.download_profile_photo(self.entity.photo,
-                                           file_path=self.propic_path,
-                                           add_extension=False)
+        output = self.get_propic_path()
+        if not isfile(output):
+            # Only download the file if it doesn't exist yet
+            self.client.download_profile_photo(self.entity.photo,
+                                               file_path=output,
+                                               add_extension=False)
+        return output
 
-        return self.propic_path
+    def get_propic_path(self):
+        """Returns the latest profile picture path"""
+        photo_id = getattr(self.entity.photo, 'photo_id')
+        if not photo_id:
+            # Not an user, it was a chat and ChatPhoto doesn't have photo_id
+            # Use the ID of the file location
+            photo_id = self.entity.photo.photo_big.local_id
+
+        return path.join(self.propics_dir, '{}.jpg'.format(photo_id))
 
     def begin_backup(self):
         """Begins the backup on the given peer"""
@@ -127,16 +137,6 @@ class Backuper:
         # Create a connection to the database
         db_file = path.join(self.backup_dir, 'backup.sqlite')
         self.db = TLDatabase(db_file)
-
-        # Load the previous data
-        # We need to know the latest message ID so we can resume the backup
-        metadata = self.load_metadata()
-        if metadata:
-            last_id = metadata.get('resume_msg_id')
-            # Do not check for the scheme layers to be the same,
-            # the database is meant to be consistent always
-        else:
-            last_id = 0
 
         # Determine whether we started making the backup from the very first message or not.
         # If this is the case:
@@ -146,7 +146,7 @@ class Backuper:
         # Otherwise, if we did not start from the first message:
         #   More messages were in the backup already, and after we backup those "left" ones,
         #   we must return to the first message and backup until where we started.
-        started_at_0 = last_id == 0
+        started_at_0 = self.metadata['resume_msg_id'] == 0
 
         # Keep an internal downloaded count for it to be faster
         downloaded_count = self.db.count('messages')
@@ -157,14 +157,14 @@ class Backuper:
             while True:
                 result = self.client.invoke(GetHistoryRequest(
                     peer=input_peer,
-                    offset_id=last_id,
+                    offset_id=self.metadata['resume_msg_id'],
                     limit=self.download_chunk_size,
                     offset_date=None,
                     add_offset=0,
                     max_id=0,
                     min_id=0
                 ))
-                total_messages = getattr(result, 'count', len(result.messages))
+                self.metadata['total_msgs'] = getattr(result, 'count', len(result.messages))
 
                 # First add users and chats, replacing any previous value
                 for user in result.users:
@@ -178,35 +178,35 @@ class Backuper:
                         # If the message we retrieved was already saved, this means that we're
                         # done because we have the rest of the messages!
                         # Clear the list so we enter the next if, and break to early terminate
-                        last_id = result.messages[-1].id
+                        self.metadata['resume_msg_id'] = result.messages[-1].id
                         del result.messages[:]
                         break
                     else:
                         self.db.add_object(msg)
                         downloaded_count += 1
-                        last_id = msg.id
+                        self.metadata['resume_msg_id'] = msg.id
 
                 # Always commit at the end to save changes
                 self.db.commit()
-                self.save_metadata(resume_msg_id=last_id)
+                self.save_metadata()
 
                 if result.messages:
                     # We downloaded and added more messages, so print progress
                     print('[{:.2%}, ETA: {}] Downloaded {} out of {} messages'.format(
-                        downloaded_count / total_messages,
-                        self.calculate_eta(downloaded_count, total_messages),
+                        downloaded_count / self.metadata['total_msgs'],
+                        self.calculate_eta(downloaded_count, self.metadata['total_msgs']),
                         downloaded_count,
-                        total_messages))
+                        self.metadata['total_msgs']))
                 else:
                     # We've downloaded all the messages since the last backup
                     if started_at_0:
                         # And since we started from the very first message, we have them all
-                        print('Downloaded all {}'.format(total_messages))
+                        print('Downloaded all {}'.format(self.metadata['total_msgs']))
                         break
                     else:
                         # We need to start from the first message (latest sent message)
                         # and backup again until we have them all
-                        last_id = 0
+                        self.metadata['resume_msg_id'] = 0
                         started_at_0 = True
 
                 # Always sleep a bit, or Telegram will get angry and tell us to chill
@@ -218,7 +218,7 @@ class Backuper:
             print('Operation cancelled, not downloading more messages!')
             # Also commit here, we don't want to lose any information!
             self.db.commit()
-            self.save_metadata(resume_msg_id=last_id)
+            self.save_metadata()
 
     def begin_backup_media(self, db_file, dl_propics, dl_photos, dl_documents):
         propics_dir, photos_dir, documents_dir, stickers_dir = \
