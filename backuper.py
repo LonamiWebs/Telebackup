@@ -1,4 +1,6 @@
 import json
+import os
+import shutil
 from threading import Thread
 from time import sleep
 from datetime import timedelta
@@ -64,8 +66,13 @@ class Backuper:
 
     # endregion
 
+    def delete_backup(self):
+        """Deletes the backup with the current peer from disk and sets
+           everything to None (the backup becomes unusable)"""
+        shutil.rmtree(self.backup_dir)
+
     @staticmethod
-    def enumerate_backups_entites():
+    def enumerate_backups_entities():
         """Enumerates the entities of all the available backups"""
         if isdir(Backuper.backups_dir):
 

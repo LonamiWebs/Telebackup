@@ -20,7 +20,7 @@ class SelectDialogWindow(Frame):
         self.create_widgets()
 
         # First load previous backups entities
-        self.entities = list(Backuper.enumerate_backups_entites())
+        self.entities = list(Backuper.enumerate_backups_entities())
         self.update_conversation_list()
 
         # Load dialogs after the window has loaded (arbitrary 100ms)

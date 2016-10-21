@@ -1,4 +1,6 @@
+from os.path import abspath
 from tkinter import *
+from tkinter.messagebox import showinfo, askquestion
 from tkinter.ttk import *
 
 from threading import Thread
@@ -37,6 +39,7 @@ class BackupWindow(Frame):
         self.on_metadata_change()
 
     def dl_propic(self):
+        # TODO also download total messages since that probably changed
         self.entity_card.update_profile_photo(self.backuper.backup_propic())
 
     def create_widgets(self):
@@ -79,7 +82,8 @@ class BackupWindow(Frame):
         self.delete = Button(self.left_column,
                              text='Delete',
                              image=load_png('delete'),
-                             compound=LEFT)
+                             compound=LEFT,
+                             command=self.delete_backup)
         self.delete.grid(row=3, sticky=NE)
 
         self.margin = Label(self.left_column)
@@ -141,6 +145,21 @@ class BackupWindow(Frame):
             # The button is now unchecked (resumed → paused)
             self.backuper.stop_backup()
             self.toggle_buttons(True, self.resume_pause)
+
+    def delete_backup(self):
+        do_delete = askquestion('Please read carefully',
+                                'Deleting the backup will completely remove the backup directory '
+                                'with the selected dialog, INCLUDING ANY FILE YOU PLACED IN IT. '
+                                'Please make sure you did NOT put any personal file under:\n{}.\n\n'
+                                'Also note that this will NOT delete any message from Telegram. '
+                                'Do you wish to continue?'.format(abspath(self.backuper.backup_dir)),
+                                icon='warning')
+        if do_delete == 'yes':
+            self.backuper.delete_backup()
+            showinfo('Backup deleted',
+                     'Your backup with {} has been completely removed. '
+                     'You will now go back to the dialogs window.'.format(self.display))
+            self.go_back()
 
     def go_back(self):
         """Goes back to the previous (select dialog) window"""
