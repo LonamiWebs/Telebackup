@@ -40,20 +40,19 @@ class TLDatabase:
         message text,               -- 1
 
         from_id integer,            -- 2
-        out bool,                   -- 3
-        date timestamp,             -- 4
-        edit_date timestamp,        -- 5
+        date timestamp,             -- 3
+        edit_date timestamp,        -- 4
 
-        fwd_from text,              -- 6
-        via_bot_id integer,         -- 7
-        reply_to_msg_id integer,    -- 8
+        fwd_from text,              -- 5
+        via_bot_id integer,         -- 6
+        reply_to_msg_id integer,    -- 7
 
-        media blob,                 -- 9
-        media_id integer,           -- 10
-        entities blob,              -- 11
+        media blob,                 -- 8
+        media_id integer,           -- 9
+        entities blob,              -- 10
 
-        action blob,                -- 12
-        action_id integer           -- 13
+        action blob,                -- 11
+        action_id integer           -- 12
         )""")
 
         self.con.execute("""create table if not exists users (
@@ -160,27 +159,27 @@ class TLDatabase:
         """Converts an sql tuple back to a message TLObject"""
 
         # Check whether it is a service message
-        if sql_tuple[13]:
+        if sql_tuple[12]:
             return MessageService(id=sql_tuple[0],
                                   from_id=sql_tuple[2],
-                                  out=sql_tuple[3],
+                                  #out=sql_tuple[3],  # TODO INFER
                                   to_id=None,  # This will always be the same, thus it wasn't saved
-                                  date=sql_tuple[4],
-                                  reply_to_msg_id=sql_tuple[8],
-                                  action=TLDatabase.convert_object(sql_tuple[12]))
+                                  date=sql_tuple[3],
+                                  reply_to_msg_id=sql_tuple[7],
+                                  action=TLDatabase.convert_object(sql_tuple[11]))
         else:
             return Message(id=sql_tuple[0],
                            message=sql_tuple[1],
                            from_id=sql_tuple[2],
                            to_id=None,  # This will always be the same, thus it wasn't saved
-                           out=sql_tuple[3],
-                           date=sql_tuple[4],
-                           edit_date=sql_tuple[5],
-                           fwd_from=TLDatabase.convert_object(sql_tuple[6]),
-                           via_bot_id=sql_tuple[7],
-                           reply_to_msg_id=sql_tuple[8],
-                           media=TLDatabase.convert_object(sql_tuple[9]),
-                           entities=TLDatabase.convert_vector(sql_tuple[11]))
+                           #out=sql_tuple[3],  # TODO INFER
+                           date=sql_tuple[3],
+                           edit_date=sql_tuple[4],
+                           fwd_from=TLDatabase.convert_object(sql_tuple[5]),
+                           via_bot_id=sql_tuple[6],
+                           reply_to_msg_id=sql_tuple[7],
+                           media=TLDatabase.convert_object(sql_tuple[8]),
+                           entities=TLDatabase.convert_vector(sql_tuple[9]))
 
     @staticmethod
     def convert_user(sql_tuple):
@@ -257,9 +256,9 @@ class TLDatabase:
         """Adds a message TLObject to its table"""
         c = self.con.cursor()
         if replace:
-            query = 'insert or replace into messages values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            query = 'insert or replace into messages values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         else:
-            query = 'insert into messages values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            query = 'insert into messages values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
 
         if msg.message:
             message = msg.message
@@ -275,7 +274,6 @@ class TLDatabase:
                   (msg.id,
                    message,
                    msg.from_id,
-                   msg.out,
                    msg.date,
                    msg.edit_date,
                    self.adapt_object(msg.fwd_from),
@@ -291,14 +289,13 @@ class TLDatabase:
         """Adds a message service TLObject to its table"""
         c = self.con.cursor()
         if replace:
-            query = 'insert or replace into messages values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            query = 'insert or replace into messages values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         else:
-            query = 'insert into messages values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            query = 'insert into messages values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         c.execute(query,
                   (msg.id,
                    None,
                    msg.from_id,
-                   msg.out,
                    msg.date,
                    None,
                    None,
