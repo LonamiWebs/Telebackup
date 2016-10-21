@@ -1,7 +1,12 @@
+from os import makedirs
+from os.path import dirname
+
+
 class HTMLWriter:
     """Class used to write HTML documents"""
 
     def __init__(self, file_path):
+        makedirs(dirname(file_path), exist_ok=True)
         self.handle = open(file_path, 'w')
         self.tags = []
 

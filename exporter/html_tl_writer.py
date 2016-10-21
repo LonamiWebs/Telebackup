@@ -64,7 +64,7 @@ class HTMLTLWriter(HTMLWriter):
         self.open_tag('html')
         self.open_tag('head')
 
-        self.tag('link', rel='stylesheet', type='text/css', href='style.css')
+        self.tag('link', rel='stylesheet', type='text/css', href='../../../style.css')
         self.tag('meta', charset='utf-8')
 
         self.close_tag()  # head
@@ -92,8 +92,8 @@ class HTMLTLWriter(HTMLWriter):
             self.tag('td', _class='propic')
         else:
             self.open_tag('td', _class='propic')
-            self.write_img('media/profile_photos/{}.jpg'.format(msg.from_id),
-                           fallback='media/profile_photos/default.png')
+            self.write_img('../../../media/profile_photos/{}.jpg'.format(msg.from_id),
+                           fallback='../../../media/profile_photos/default.png')
             self.close_tag()
 
     # endregion
@@ -173,8 +173,8 @@ class HTMLTLWriter(HTMLWriter):
         # Write the message itself
         if msg.media:
             if isinstance(msg.media, MessageMediaPhoto):
-                self.write_img(path='media/photos/{}.jpg'.format(msg.media.photo.id),
-                               fallback='media/photos/default.png')
+                self.write_img(path='../../../media/photos/{}.jpg'.format(msg.media.photo.id),
+                               fallback='../../../media/photos/default.png')
             # TODO handle more media types
 
         if msg.message:

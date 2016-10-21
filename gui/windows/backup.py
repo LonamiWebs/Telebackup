@@ -6,6 +6,7 @@ from tkinter.ttk import *
 from threading import Thread
 
 from backuper import Backuper
+from exporter.exporter import Exporter
 
 from gui.main import start_app
 from gui.res.loader import load_png
@@ -75,7 +76,8 @@ class BackupWindow(Frame):
         self.export = Button(self.left_column,
                              text='Export',
                              image=load_png('export'),
-                             compound=LEFT)
+                             compound=LEFT,
+                             command=self.do_export)
         self.export.grid(row=2, sticky=NE)
 
         # Delete saved backup
@@ -160,6 +162,11 @@ class BackupWindow(Frame):
                      'Your backup with {} has been completely removed. '
                      'You will now go back to the dialogs window.'.format(self.display))
             self.go_back()
+
+    def do_export(self):
+        exporter = Exporter()
+        exporter.export(self.backuper.files['database'], self.display)
+        pass
 
     def go_back(self):
         """Goes back to the previous (select dialog) window"""

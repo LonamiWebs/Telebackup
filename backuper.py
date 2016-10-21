@@ -1,12 +1,12 @@
 import json
-import os
 import shutil
-from threading import Thread
-from time import sleep
 from datetime import timedelta
 from os import makedirs, path, listdir
-
 from os.path import isfile, isdir
+from threading import Thread
+from time import sleep
+
+import telethon.tl.all_tlobjects as all_tlobjects
 from telethon import RPCError
 from telethon.tl.functions.messages import GetHistoryRequest
 from telethon.tl.types import MessageMediaPhoto, MessageMediaDocument
@@ -16,8 +16,6 @@ from telethon.utils import \
 
 from tl_database import TLDatabase
 
-# Load the current scheme layer
-import telethon.tl.all_tlobjects as all_tlobjects
 scheme_layer = all_tlobjects.layer
 del all_tlobjects
 
@@ -43,8 +41,25 @@ class Backuper:
 
         self.download_delay = download_delay
         self.download_chunk_size = download_chunk_size
+
         self.backup_dir = path.join(Backuper.backups_dir, str(entity.id))
-        self.propics_dir = path.join(self.backup_dir, 'propics')
+
+        self.directories = {
+            'propics': path.join(self.backup_dir, 'propics'),
+
+            'profile_photos': path.join(self.backup_dir, 'media', 'profile_photos'),
+            'photos': path.join(self.backup_dir, 'media', 'photos'),
+            'documents': path.join(self.backup_dir, 'media', 'documents'),
+            'stickers': path.join(self.backup_dir, 'media', 'stickers')
+        }
+
+        self.files = {
+            'entity': path.join(self.backup_dir, 'entity.tlo'),
+            'metadata': path.join(self.backup_dir, 'metadata.json'),
+            'database': path.join(self.backup_dir, 'backup.sqlite'),
+            'propic': path.join(self.directories['propics'],
+                                '{}.jpg'.format(self.entity.photo.photo_big.local_id))
+        }
 
         # Is the backup running (are messages being downloaded?)
         self.backup_running = False
@@ -54,10 +69,11 @@ class Backuper:
 
         # Ensure the directory for the backups
         makedirs(self.backup_dir, exist_ok=True)
-        makedirs(self.propics_dir, exist_ok=True)
+        for directory in self.directories.values():
+            makedirs(directory, exist_ok=True)
 
         # Save the entity and load the metadata
-        with open(path.join(self.backup_dir, 'entity.tlo'), 'wb') as file:
+        with open(self.files['entity'], 'wb') as file:
             with BinaryWriter(file) as writer:
                 entity.on_send(writer)
         self.metadata = self.load_metadata()
@@ -95,7 +111,7 @@ class Backuper:
 
     def save_metadata(self):
         """Saves the metadata for the current entity"""
-        with open(path.join(self.backup_dir, 'metadata.json'), 'w') as file:
+        with open(self.files['metadata'], 'w') as file:
             json.dump(self.metadata, file)
 
         if self.on_metadata_change:
@@ -103,8 +119,7 @@ class Backuper:
 
     def load_metadata(self):
         """Loads the metadata of the current entity"""
-        file_path = path.join(self.backup_dir, 'metadata.json')
-        if not path.isfile(file_path):
+        if not path.isfile(self.files['metadata']):
             return {
                 'resume_msg_id': 0,
                 'saved_msgs': 0,
@@ -113,14 +128,14 @@ class Backuper:
                 'scheme_layer': scheme_layer
             }
         else:
-            with open(file_path, 'r') as file:
+            with open(self.files['metadata'], 'r') as file:
                 return json.load(file)
 
     def get_create_media_dirs(self):
         """Retrieves the paths for the profile photos, photos,
            documents and stickers backups directories, creating them too"""
         directories = []
-        for directory in ('profile_photos', 'photos', 'documents', 'stickers'):
+        for directory in ():
             current = path.join(self.backup_dir, 'media', directory)
             makedirs(current, exist_ok=True)
             directories.append(current)
@@ -132,23 +147,12 @@ class Backuper:
     def backup_propic(self):
         """Backups the profile picture for the given
            entity as the current peer profile picture, returning its path"""
-        output = self.get_propic_path()
-        if not isfile(output):
+        if not isfile(self.files['propic']):
             # Only download the file if it doesn't exist yet
             self.client.download_profile_photo(self.entity.photo,
-                                               file_path=output,
+                                               file_path=self.files['propic'],
                                                add_extension=False)
-        return output
-
-    def get_propic_path(self):
-        """Returns the latest profile picture path"""
-        photo_id = getattr(self.entity.photo, 'photo_id', None)
-        if not photo_id:
-            # Not an user, it was a chat and ChatPhoto doesn't have photo_id
-            # Use the ID of the file location
-            photo_id = self.entity.photo.photo_big.local_id
-
-        return path.join(self.propics_dir, '{}.jpg'.format(photo_id))
+        return self.files['propic']
 
     def start_backup(self):
         """Begins the backup on the given peer"""
@@ -163,8 +167,7 @@ class Backuper:
         self.backup_running = True
 
         # Create a connection to the database
-        db_file = path.join(self.backup_dir, 'backup.sqlite')
-        self.db = TLDatabase(db_file)
+        self.db = TLDatabase(self.files['database'])
 
         # Determine whether we started making the backup from the very first message or not.
         # If this is the case:
