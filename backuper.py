@@ -1,4 +1,5 @@
 import json
+from threading import Thread
 from time import sleep
 from datetime import timedelta
 from os import makedirs, path, listdir
@@ -43,6 +44,12 @@ class Backuper:
         self.backup_dir = path.join(Backuper.backups_dir, str(entity.id))
         self.propics_dir = path.join(self.backup_dir, 'propics')
 
+        # Is the backup running (are messages being downloaded?)
+        self.backup_running = False
+
+        # Event that gets fired when metadata is saved
+        self.on_metadata_change = None
+
         # Ensure the directory for the backups
         makedirs(self.backup_dir, exist_ok=True)
         makedirs(self.propics_dir, exist_ok=True)
@@ -84,13 +91,18 @@ class Backuper:
         with open(path.join(self.backup_dir, 'metadata.json'), 'w') as file:
             json.dump(self.metadata, file)
 
+        if self.on_metadata_change:
+            self.on_metadata_change()
+
     def load_metadata(self):
         """Loads the metadata of the current entity"""
         file_path = path.join(self.backup_dir, 'metadata.json')
         if not path.isfile(file_path):
             return {
                 'resume_msg_id': 0,
+                'saved_msgs': 0,
                 'total_msgs': 0,
+                'etl': '???',
                 'scheme_layer': scheme_layer
             }
         else:
@@ -123,7 +135,7 @@ class Backuper:
 
     def get_propic_path(self):
         """Returns the latest profile picture path"""
-        photo_id = getattr(self.entity.photo, 'photo_id')
+        photo_id = getattr(self.entity.photo, 'photo_id', None)
         if not photo_id:
             # Not an user, it was a chat and ChatPhoto doesn't have photo_id
             # Use the ID of the file location
@@ -131,8 +143,17 @@ class Backuper:
 
         return path.join(self.propics_dir, '{}.jpg'.format(photo_id))
 
-    def begin_backup(self):
+    def start_backup(self):
         """Begins the backup on the given peer"""
+        Thread(target=self.backup_messages_thread).start()
+
+    def stop_backup(self):
+        """Stops the backup on the given peer"""
+        self.backup_running = False
+
+    def backup_messages_thread(self):
+        """This method backups the messages and should be ran in a different thread"""
+        self.backup_running = True
 
         # Create a connection to the database
         db_file = path.join(self.backup_dir, 'backup.sqlite')
@@ -149,12 +170,13 @@ class Backuper:
         started_at_0 = self.metadata['resume_msg_id'] == 0
 
         # Keep an internal downloaded count for it to be faster
-        downloaded_count = self.db.count('messages')
+        # (instead of querying the database all the time)
+        self.metadata['saved_msgs'] = self.db.count('messages')
 
         # Make the backup
         try:
             input_peer = get_input_peer(self.entity)
-            while True:
+            while self.backup_running:
                 result = self.client.invoke(GetHistoryRequest(
                     peer=input_peer,
                     offset_id=self.metadata['resume_msg_id'],
@@ -183,21 +205,17 @@ class Backuper:
                         break
                     else:
                         self.db.add_object(msg)
-                        downloaded_count += 1
+                        self.metadata['saved_msgs'] += 1
                         self.metadata['resume_msg_id'] = msg.id
+
+                self.metadata['etl'] = str(self.calculate_etl(
+                    self.metadata['saved_msgs'], self.metadata['total_msgs']))
 
                 # Always commit at the end to save changes
                 self.db.commit()
                 self.save_metadata()
 
-                if result.messages:
-                    # We downloaded and added more messages, so print progress
-                    print('[{:.2%}, ETA: {}] Downloaded {} out of {} messages'.format(
-                        downloaded_count / self.metadata['total_msgs'],
-                        self.calculate_eta(downloaded_count, self.metadata['total_msgs']),
-                        downloaded_count,
-                        self.metadata['total_msgs']))
-                else:
+                if not result.messages:
                     # We've downloaded all the messages since the last backup
                     if started_at_0:
                         # And since we started from the very first message, we have them all
@@ -219,6 +237,9 @@ class Backuper:
             # Also commit here, we don't want to lose any information!
             self.db.commit()
             self.save_metadata()
+
+        finally:
+            self.backup_running = False
 
     def begin_backup_media(self, db_file, dl_propics, dl_photos, dl_documents):
         propics_dir, photos_dir, documents_dir, stickers_dir = \
@@ -303,8 +324,8 @@ class Backuper:
 
     # endregion
 
-    def calculate_eta(self, downloaded, total):
-        """Calculates the Estimated Time of Arrival (ETA)"""
+    def calculate_etl(self, downloaded, total):
+        """Calculates the Estimated Time Left (ETL)"""
         left = total - downloaded
         chunks_left = (left + self.download_chunk_size - 1) // self.download_chunk_size
         eta = chunks_left * self.download_delay

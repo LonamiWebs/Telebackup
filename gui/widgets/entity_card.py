@@ -52,17 +52,9 @@ class EntityCard(Frame):
                                                text='{} participants'.format(self.entity.participants_count))
             self.participants_label.grid(row=2, sticky=NW)
 
-        self.msg_count_label = Label(self.right_column,
-                                        text='??? messages')
-        self.msg_count_label.grid(row=3, sticky=NW)
-
     def update_profile_photo(self, photo_file):
         """Updates the profile photo"""
         self.profile_picture_photo = ImageTk.PhotoImage(
             Image.open(photo_file).resize((128, 128), Image.ANTIALIAS))
 
         self.profile_picture.config(image=self.profile_picture_photo)
-
-    def update_msg_count(self, count):
-        """Updates the message count"""
-        self.msg_count_label.config(text='{} messages'.format(count))

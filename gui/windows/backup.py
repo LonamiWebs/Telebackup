@@ -21,6 +21,7 @@ class BackupWindow(Frame):
 
         self.client = get_cached_client()
         self.backuper = Backuper(self.client, self.entity)
+        self.backuper.on_metadata_change = self.on_metadata_change
 
         self.master.title('Backup with {}'.format(self.display))
 
@@ -29,6 +30,9 @@ class BackupWindow(Frame):
 
         # Download the profile picture in a different thread
         Thread(target=self.dl_propic).start()
+
+        # Fire the on_metadata to update some values
+        self.on_metadata_change()
 
     def dl_propic(self):
         self.entity_card.update_profile_photo(self.backuper.backup_propic())
@@ -48,31 +52,32 @@ class BackupWindow(Frame):
 
         # Resume/pause backup download
         self.resume_pause = Button(self.left_column,
-                                      text='Resume',
-                                      image=load_png('resume'),
-                                      compound=LEFT)
+                                   text='Resume',
+                                   image=load_png('resume'),
+                                   compound=LEFT,
+                                   command=self.resume_pause_backup)
         self.resume_pause.grid(row=0, sticky=NE)
 
         # Save (download) media
         self.save_media = Button(self.left_column,
-                                    text='Save media',
-                                    image=load_png('download'),
-                                    compound=LEFT)
+                                 text='Save media',
+                                 image=load_png('download'),
+                                 compound=LEFT)
         self.save_media.grid(row=1, sticky=N)
 
         # Export backup
         self.export = Button(self.left_column,
-                                text='Export',
-                                image=load_png('export'),
-                                compound=LEFT)
+                             text='Export',
+                             image=load_png('export'),
+                             compound=LEFT)
         self.export.grid(row=2, sticky=NE)
 
         # Delete saved backup
-        self.export = Button(self.left_column,
-                                text='Delete',
-                                image=load_png('delete'),
-                                compound=LEFT)
-        self.export.grid(row=3, sticky=NE)
+        self.delete = Button(self.left_column,
+                             text='Delete',
+                             image=load_png('delete'),
+                             compound=LEFT)
+        self.delete.grid(row=3, sticky=NE)
 
         self.margin = Label(self.left_column)
         self.margin.grid(row=4, sticky=NE)
@@ -107,7 +112,8 @@ class BackupWindow(Frame):
 
         # Estimated time left
         self.etl = Label(self.bottom_column,
-                            text='Estimated time left: ???')
+                         text='Estimated time left: {}'
+                         .format(self.backuper.metadata.get('etl', '???')))
         self.etl.grid(row=0, sticky=W)
 
         # Download progress bar
@@ -116,5 +122,43 @@ class BackupWindow(Frame):
 
         # Downloaded messages/total messages
         self.text_progress = Label(self.bottom_column,
-                                      text='0/??? messages saved')
+                                      text='???/??? messages saved')
         self.text_progress.grid(row=2, sticky=E)
+
+        # Keep a tuple with all the buttons for easy access
+        self.buttons = (self.resume_pause, self.save_media, self.export, self.delete, self.back)
+
+    def resume_pause_backup(self):
+        if not self.backuper.backup_running:
+            self.toggle_buttons(False, self.resume_pause)
+            self.backuper.start_backup()
+            self.resume_pause.config(text='Pause',
+                                     image=load_png('pause'))
+        else:
+            self.backuper.stop_backup()
+            self.resume_pause.config(text='Resume',
+                                     image=load_png('resume'))
+            self.toggle_buttons(True, self.resume_pause)
+
+    def toggle_buttons(self, enabled, do_not_toggle=None):
+        """Toggles all the buttons to be either enabled or disabled, except do_not_toggle"""
+        state = NORMAL if enabled else DISABLED
+        for b in self.buttons:
+            if b != do_not_toggle:
+                b.config(state=state)
+
+    def on_metadata_change(self):
+        self.text_progress.config(text='{}/{} messages saved'
+                                  .format(self.backuper.metadata['saved_msgs'],
+                                          self.backuper.metadata['total_msgs']))
+
+        self.progress.config(maximum=self.backuper.metadata['total_msgs'],
+                             value=self.backuper.metadata['saved_msgs'])
+
+        self.etl.config(text='Estimated time left: {}'.format(self.backuper.metadata['etl']))
+
+        # If the backup finished (we have all the messages), toggle the pause button
+        # The backup must also be running so we can stop it
+        if (self.backuper.metadata['saved_msgs'] == self.backuper.metadata['total_msgs'] and
+                self.backuper.backup_running):
+            self.resume_pause_backup()
