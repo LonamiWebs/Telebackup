@@ -7,6 +7,7 @@ from os.path import isfile
 from telethon.utils import get_display_name, get_input_peer
 
 from backuper import Backuper
+from gui.main import start_app
 from gui.res.loader import load_png
 from gui.widgets.entity_card import EntityCard
 from utils import get_cached_client, sanitize_string
@@ -84,9 +85,10 @@ class BackupWindow(Frame):
 
         # Go back
         self.back = Button(self.left_column,
-                              text='Back',
-                              image=load_png('back'),
-                              compound=LEFT)
+                           text='Back',
+                           image=load_png('back'),
+                           compound=LEFT,
+                           command=self.go_back)
         self.back.grid(row=5, sticky=NE)
 
 
@@ -139,6 +141,14 @@ class BackupWindow(Frame):
             self.resume_pause.config(text='Resume',
                                      image=load_png('resume'))
             self.toggle_buttons(True, self.resume_pause)
+
+    def go_back(self):
+        """Goes back to the previous (select dialog) window"""
+        self.master.destroy()
+
+        # Import the window here to avoid cyclic dependencies
+        from gui.windows import SelectDialogWindow
+        start_app(SelectDialogWindow)
 
     def toggle_buttons(self, enabled, do_not_toggle=None):
         """Toggles all the buttons to be either enabled or disabled, except do_not_toggle"""

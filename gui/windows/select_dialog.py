@@ -5,7 +5,6 @@ from telethon.utils import get_display_name
 
 from backuper import Backuper
 from gui.main import start_app
-from gui.windows.backup import BackupWindow
 from utils import get_cached_client, sanitize_string
 
 
@@ -79,6 +78,8 @@ class SelectDialogWindow(Frame):
                 display = sanitize_string(get_display_name(entity))
                 if value == display:
                     self.master.destroy()
+                    # Import the window here to avoid cyclic dependencies
+                    from gui.windows import BackupWindow
                     start_app(BackupWindow, entity=entity)
 
     def update_conversation_list(self):
