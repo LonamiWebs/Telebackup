@@ -106,6 +106,21 @@ class Backuper:
             with open(self.files['metadata'], 'r') as file:
                 return json.load(file)
 
+    def update_total_messages(self):
+        """Updates the total messages with the current peer"""
+
+        result = self.client.invoke(GetHistoryRequest(
+            peer=get_input_peer(self.entity),
+            # No offset, we simply want the total messages count
+            offset_id=0, limit=0, offset_date=None,
+            add_offset=0, max_id=0, min_id=0
+        ))
+        self.metadata['total_msgs'] = getattr(result, 'count', len(result.messages))
+        self.metadata['etl'] = str(self.calculate_etl(
+            self.metadata['saved_msgs'], self.metadata['total_msgs']))
+
+        self.save_metadata()
+
     #endregion
 
     #region Backups listing

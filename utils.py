@@ -5,8 +5,6 @@ from os import path
 from telethon import TelegramClient
 
 from gui import start_app
-from gui.windows import LoginWindow
-
 
 cached_client = None
 
@@ -84,9 +82,14 @@ def get_cached_client():
 
         # Then, ensure we're authorized and have access
         if not cached_client.is_user_authorized():
+            # Import the login window locally to avoid cyclic dependencies
+            from gui.windows import LoginWindow
+
             print('First run, client not authorized. Sending code request.')
             cached_client.send_code_request(str(settings['user_phone']))
             start_app(LoginWindow, client=cached_client, phone=settings['user_phone'])
+
+            del LoginWindow
 
         print('Client loaded and authorized.')
     return cached_client

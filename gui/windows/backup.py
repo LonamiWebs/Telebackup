@@ -37,12 +37,12 @@ class BackupWindow(Frame):
         # Download the profile picture in a different thread
         Thread(target=self.dl_propic).start()
 
-        # Fire the on_metadata to update some values
-        self.on_metadata_change()
-
     def dl_propic(self):
-        # TODO also download total messages since that probably changed
+        self.backuper.update_total_messages()
         self.entity_card.update_profile_photo(self.backuper.backup_propic())
+
+        # Fire the on_metadata to update some visual fields (such as current backup progress)
+        self.on_metadata_change()
 
     #region Widgets setup
 
@@ -190,9 +190,14 @@ class BackupWindow(Frame):
 
     def on_metadata_change(self):
         """Occurs when the backuper's metadata changes"""
-        self.text_progress.config(text='{}/{} messages saved'
+        # Do we have all the messages?
+        have_all = self.backuper.metadata['saved_msgs'] == self.backuper.metadata['total_msgs']
+
+        # Update the text (saved/total), progress bar and estimated time left
+        self.text_progress.config(text='{}/{} messages saved{}'
                                   .format(self.backuper.metadata['saved_msgs'],
-                                          self.backuper.metadata['total_msgs']))
+                                          self.backuper.metadata['total_msgs'],
+                                          ' (completed)' if have_all else ''))
 
         self.progress.config(maximum=self.backuper.metadata['total_msgs'],
                              value=self.backuper.metadata['saved_msgs'])
@@ -201,8 +206,7 @@ class BackupWindow(Frame):
 
         # If the backup finished (we have all the messages), toggle the pause button
         # The backup must also be running so we can stop it
-        if (self.backuper.metadata['saved_msgs'] == self.backuper.metadata['total_msgs'] and
-                self.backuper.backup_running):
+        if have_all and self.backuper.backup_running:
             self.resume_pause.toggle(False)
 
     #endregion
