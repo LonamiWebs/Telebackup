@@ -4,7 +4,7 @@ from tkinter.ttk import *
 from PIL import ImageTk, Image
 from telethon.utils import get_display_name
 
-from utils import get_cached_client, sanitize_string
+from utils import sanitize_string
 
 
 class EntityCard(Frame):

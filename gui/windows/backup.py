@@ -3,14 +3,15 @@ from tkinter.ttk import *
 
 from threading import Thread
 
-from os.path import isfile
-from telethon.utils import get_display_name, get_input_peer
-
 from backuper import Backuper
+
 from gui.main import start_app
 from gui.res.loader import load_png
 from gui.widgets.entity_card import EntityCard
+from gui.widgets.toggle_button import ToggleButton
+
 from utils import get_cached_client, sanitize_string
+from telethon.utils import get_display_name
 
 
 class BackupWindow(Frame):
@@ -52,11 +53,12 @@ class BackupWindow(Frame):
         self.left_column.grid(row=1, column=0, sticky=NE)
 
         # Resume/pause backup download
-        self.resume_pause = Button(self.left_column,
-                                   text='Resume',
-                                   image=load_png('resume'),
-                                   compound=LEFT,
-                                   command=self.resume_pause_backup)
+        self.resume_pause = ToggleButton(self.left_column,
+                                         text='Resume',
+                                         image=load_png('resume'),
+                                         checked_text='Pause',
+                                         checked_image=load_png('pause'),
+                                         on_toggle=self.resume_pause_backup)
         self.resume_pause.grid(row=0, sticky=NE)
 
         # Save (download) media
@@ -131,15 +133,13 @@ class BackupWindow(Frame):
         self.buttons = (self.resume_pause, self.save_media, self.export, self.delete, self.back)
 
     def resume_pause_backup(self):
-        if not self.backuper.backup_running:
+        if self.resume_pause.is_checked:
+            # The button is now checked (paused → resumed)
             self.toggle_buttons(False, self.resume_pause)
             self.backuper.start_backup()
-            self.resume_pause.config(text='Pause',
-                                     image=load_png('pause'))
         else:
+            # The button is now unchecked (resumed → paused)
             self.backuper.stop_backup()
-            self.resume_pause.config(text='Resume',
-                                     image=load_png('resume'))
             self.toggle_buttons(True, self.resume_pause)
 
     def go_back(self):
@@ -171,4 +171,4 @@ class BackupWindow(Frame):
         # The backup must also be running so we can stop it
         if (self.backuper.metadata['saved_msgs'] == self.backuper.metadata['total_msgs'] and
                 self.backuper.backup_running):
-            self.resume_pause_backup()
+            self.resume_pause.toggle(False)
