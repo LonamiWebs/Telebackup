@@ -22,9 +22,10 @@ del all_tlobjects
 
 class Backuper:
 
+    # Default output directory for all the made backups
     backups_dir = 'backups'
 
-    # region Initialize
+    #region Initialize
 
     def __init__(self, client, entity,
                  download_delay=1,
@@ -44,6 +45,7 @@ class Backuper:
 
         self.backup_dir = path.join(Backuper.backups_dir, str(entity.id))
 
+        # Set up all the directories and files that we'll be needing
         self.directories = {
             'propics': path.join(self.backup_dir, 'propics'),
 
@@ -78,36 +80,9 @@ class Backuper:
                 entity.on_send(writer)
         self.metadata = self.load_metadata()
 
-        self.db = None  # This will be loaded later
+    #endregion
 
-    # endregion
-
-    def delete_backup(self):
-        """Deletes the backup with the current peer from disk and sets
-           everything to None (the backup becomes unusable)"""
-        shutil.rmtree(self.backup_dir)
-
-    @staticmethod
-    def enumerate_backups_entities():
-        """Enumerates the entities of all the available backups"""
-        if isdir(Backuper.backups_dir):
-
-            # Look for subdirectories
-            for directory in listdir(Backuper.backups_dir):
-                entity_file = path.join(Backuper.backups_dir, directory, 'entity.tlo')
-
-                # Ensure the entity.pickle file exists
-                if isfile(entity_file):
-
-                    # Load and yield it
-                    with open(entity_file, 'rb') as file:
-                        with BinaryReader(stream=file) as reader:
-                            yield reader.tgread_object()
-        # End of the function
-
-    @staticmethod
-    def exists_backup(entity_id):
-        return isdir(path.join(Backuper.backups_dir, str(entity_id)))
+    #region Metadata handling
 
     def save_metadata(self):
         """Saves the metadata for the current entity"""
@@ -131,28 +106,43 @@ class Backuper:
             with open(self.files['metadata'], 'r') as file:
                 return json.load(file)
 
-    def get_create_media_dirs(self):
-        """Retrieves the paths for the profile photos, photos,
-           documents and stickers backups directories, creating them too"""
-        directories = []
-        for directory in ():
-            current = path.join(self.backup_dir, 'media', directory)
-            makedirs(current, exist_ok=True)
-            directories.append(current)
+    #endregion
 
-        return directories
+    #region Backups listing
 
-    # region Making backups
+    @staticmethod
+    def enumerate_backups_entities():
+        """Enumerates the entities of all the available backups"""
+        if isdir(Backuper.backups_dir):
 
-    def backup_propic(self):
-        """Backups the profile picture for the given
-           entity as the current peer profile picture, returning its path"""
-        if not isfile(self.files['propic']):
-            # Only download the file if it doesn't exist yet
-            self.client.download_profile_photo(self.entity.photo,
-                                               file_path=self.files['propic'],
-                                               add_extension=False)
-        return self.files['propic']
+            # Look for subdirectories
+            for directory in listdir(Backuper.backups_dir):
+                entity_file = path.join(Backuper.backups_dir, directory, 'entity.tlo')
+
+                # Ensure the entity.pickle file exists
+                if isfile(entity_file):
+
+                    # Load and yield it
+                    with open(entity_file, 'rb') as file:
+                        with BinaryReader(stream=file) as reader:
+                            yield reader.tgread_object()
+
+    #endregion
+
+    #region Backup exists and deletion
+
+    @staticmethod
+    def exists_backup(entity_id):
+        return isdir(path.join(Backuper.backups_dir, str(entity_id)))
+
+    def delete_backup(self):
+        """Deletes the backup with the current peer from disk and sets
+           everything to None (the backup becomes unusable)"""
+        shutil.rmtree(self.backup_dir)
+
+    #endregion
+
+    #region Backups generation
 
     def start_backup(self):
         """Begins the backup on the given peer"""
@@ -162,12 +152,14 @@ class Backuper:
         """Stops the backup on the given peer"""
         self.backup_running = False
 
+    #region Messages backup
+
     def backup_messages_thread(self):
         """This method backups the messages and should be ran in a different thread"""
         self.backup_running = True
 
         # Create a connection to the database
-        self.db = TLDatabase(self.files['database'])
+        db = TLDatabase(self.files['database'])
 
         # Determine whether we started making the backup from the very first message or not.
         # If this is the case:
@@ -181,12 +173,13 @@ class Backuper:
 
         # Keep an internal downloaded count for it to be faster
         # (instead of querying the database all the time)
-        self.metadata['saved_msgs'] = self.db.count('messages')
+        self.metadata['saved_msgs'] = db.count('messages')
 
         # Make the backup
         try:
             input_peer = get_input_peer(self.entity)
             while self.backup_running:
+                # Invoke the GetHistoryRequest to get the next messages after those we have
                 result = self.client.invoke(GetHistoryRequest(
                     peer=input_peer,
                     offset_id=self.metadata['resume_msg_id'],
@@ -200,21 +193,21 @@ class Backuper:
 
                 # First add users and chats, replacing any previous value
                 for user in result.users:
-                    self.db.add_object(user, replace=True)
+                    db.add_object(user, replace=True)
                 for chat in result.chats:
-                    self.db.add_object(chat, replace=True)
+                    db.add_object(chat, replace=True)
 
                 # Then add the messages to the backup
                 for msg in result.messages:
-                    if self.db.in_table(msg.id, 'messages'):
+                    if db.in_table(msg.id, 'messages'):
                         # If the message we retrieved was already saved, this means that we're
-                        # done because we have the rest of the messages!
+                        # done because we have the rest of the messages.
                         # Clear the list so we enter the next if, and break to early terminate
                         self.metadata['resume_msg_id'] = result.messages[-1].id
                         del result.messages[:]
                         break
                     else:
-                        self.db.add_object(msg)
+                        db.add_object(msg)
                         self.metadata['saved_msgs'] += 1
                         self.metadata['resume_msg_id'] = msg.id
 
@@ -222,9 +215,13 @@ class Backuper:
                     self.metadata['saved_msgs'], self.metadata['total_msgs']))
 
                 # Always commit at the end to save changes
-                self.db.commit()
+                db.commit()
                 self.save_metadata()
 
+                # The list can be empty because we've either used a too big offset
+                # (in which case we have all the previous messages), or we've reached
+                # a point where we have the upcoming messages (so there's no need to
+                # download them again and we stopped)
                 if not result.messages:
                     # We've downloaded all the messages since the last backup
                     if started_at_0:
@@ -245,24 +242,38 @@ class Backuper:
         except KeyboardInterrupt:
             print('Operation cancelled, not downloading more messages!')
             # Also commit here, we don't want to lose any information!
-            self.db.commit()
+            db.commit()
             self.save_metadata()
 
         finally:
             self.backup_running = False
 
-    def begin_backup_media(self, db_file, dl_propics, dl_photos, dl_documents):
-        propics_dir, photos_dir, documents_dir, stickers_dir = \
-            self.get_create_media_dirs()
+    #endregion
 
-        db = TLDatabase(db_file)
+    #region Media backups
+
+    def backup_propic(self):
+        """Backups the profile picture for the given
+           entity as the current peer profile picture, returning its path"""
+        if not isfile(self.files['propic']):
+            # Only download the file if it doesn't exist yet
+            self.client.download_profile_photo(self.entity.photo,
+                                               file_path=self.files['propic'],
+                                               add_extension=False)
+        return self.files['propic']
+
+    def begin_backup_media(self, dl_propics, dl_photos, dl_documents):
+        """Backups the specified media contained in the given database file"""
+
+        # Create a connection to the database
+        db = TLDatabase(self.files['database'])
 
         # TODO Spaghetti code, refactor
         if dl_propics:
             total = db.count('users where photo not null')
             print("Starting download for {} users' profile photos..".format(total))
             for i, user in enumerate(db.query_users('where photo not null')):
-                output = path.join(propics_dir, '{}{}'
+                output = path.join(self.directories['profile_photos'], '{}{}'
                                    .format(user.photo.photo_id, get_extension(user.photo)))
 
                 # Try downloading the photo
@@ -288,7 +299,7 @@ class Backuper:
             total = db.count('messages where media_id = {}'.format(MessageMediaPhoto.constructor_id))
             print("Starting download for {} photos...".format(total))
             for i, msg in enumerate(db.query_messages('where media_id = {}'.format(MessageMediaPhoto.constructor_id))):
-                output = path.join(photos_dir, '{}{}'
+                output = path.join(self.directories['photos'], '{}{}'
                                    .format(msg.media.photo.id, get_extension(msg.media)))
 
                 # Try downloading the photo
@@ -312,7 +323,7 @@ class Backuper:
             total = db.count('messages where media_id = {}'.format(MessageMediaDocument.constructor_id))
             print("Starting download for {} documents...".format(total))
             for i, msg in enumerate(db.query_messages('where media_id = {}'.format(MessageMediaDocument.constructor_id))):
-                output = path.join(documents_dir, '{}{}'
+                output = path.join(self.directories['documents'], '{}{}'
                                    .format(msg.media.document.id, get_extension(msg.media)))
 
                 # Try downloading the document
@@ -332,7 +343,11 @@ class Backuper:
                 else:
                     print('Document {} out of {} download failed'.format(i, total))
 
-    # endregion
+    #endregion
+
+    #endregion
+
+    #region Utilities
 
     def calculate_etl(self, downloaded, total):
         """Calculates the Estimated Time Left (ETL)"""
@@ -340,3 +355,5 @@ class Backuper:
         chunks_left = (left + self.download_chunk_size - 1) // self.download_chunk_size
         eta = chunks_left * self.download_delay
         return timedelta(seconds=eta)
+
+    #endregion

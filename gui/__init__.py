@@ -1,10 +1,11 @@
 import tkinter as tk
 import tkinter.ttk as ttk
 
-from gui.res.loader import clear_png
+from gui.res import clear_png
 
 
 def start_app(window_class, **args):
+    """Starts the application given a window class (a frame)"""
     # Clear any previously loaded .png
     clear_png()
 

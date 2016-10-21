@@ -1,16 +1,16 @@
 from telethon.tl.types import MessageMediaPhoto
-
-from exporter.html_writer import HTMLWriter
+from exporter import HTMLWriter
 
 
 class HTMLTLWriter(HTMLWriter):
     """Class implementing HTML Writer able to also write TLObjects"""
 
     def __init__(self, file_path):
+        """Initializes a new HTMLTLWriter instance which outputs to the specified file"""
         super().__init__(file_path)
         self.start_header()
 
-    # region Formatting utils
+    #region Formatting utils
 
     @staticmethod
     def get_long_date(date):
@@ -50,16 +50,16 @@ class HTMLTLWriter(HTMLWriter):
 
         return msg.message
 
+    #endregion
 
-    # endregion
+    #region Internal database
 
-    # region Internal database
+    #endregion
 
-    # endregion
-
-    # region Header
+    #region Header
 
     def start_header(self):
+        """Starts the "header" of the HTML file (containing head, style and body beginning)"""
         self.write('<!DOCTYPE html>')
         self.open_tag('html')
         self.open_tag('head')
@@ -72,15 +72,19 @@ class HTMLTLWriter(HTMLWriter):
         self.open_tag('table', id='messages', width='100%')
 
     def end_header(self):
+        """Ends the previously started "header" closing the three last tags"""
         self.close_tag()  # table
         self.close_tag()  # body
         self.close_tag()  # html
 
-    # endregion
+    #endregion
 
-    # region Photos
+    #region Photos
 
     def write_img(self, path, fallback):
+        """Writes an image located at the given path. '../../../' will be always prefixed"""
+        path += '../../../'
+        fallback += '../../../'
         self.tag('img',
                  src=path,
                  onerror="if (this.src.indexOf('{0}') == -1) this.src = '{0}';".format(fallback))
@@ -92,15 +96,17 @@ class HTMLTLWriter(HTMLWriter):
             self.tag('td', _class='propic')
         else:
             self.open_tag('td', _class='propic')
-            self.write_img('../../../media/profile_photos/{}.jpg'.format(msg.from_id),
-                           fallback='../../../media/profile_photos/default.png')
-            self.close_tag()
+            self.write_img('media/profile_photos/{}.jpg'.format(msg.from_id),
+                           fallback='media/profile_photos/default.png')
+            self.close_tag()  # td
 
-    # endregion
+    #endregion
 
-    # region Messages
+    #region Messages
 
     def write_message(self, msg, db):
+        """Writes a Telegram message to the output file"""
+
         # We need a TLDatabase for writing the user and chat names
         self.open_tag('tr')
         # If the message is out, the table will be [empty|msg|photo]
@@ -122,13 +128,14 @@ class HTMLTLWriter(HTMLWriter):
         # Write the header of the message
         self.open_tag('p', _class='msg-header')
 
+        # The header has the entity display in bold
         self.open_tag('b')
         sender = db.query_user('where id={}'.format(msg.from_id))
         self.write_text(self.get_display(user=sender))
-        self.close_tag()
+        self.close_tag()  # b
 
+        # The header may also have a "forwarded from" part
         if msg.fwd_from:
-            # Write forwarded from name
             self.write_text(', forwarded from ')
             self.open_tag('b')
             sender = db.query_user('where id={}'.format(msg.fwd_from.from_id))
@@ -141,7 +148,7 @@ class HTMLTLWriter(HTMLWriter):
             self.write_text(self.get_short_date(msg.fwd_from.date))
             self.close_tag()  # span
 
-        # This also handles closing the header (we need to to write the reply message)
+        # This also handles closing the header, because we need to to write the reply message
         if msg.reply_to_msg_id:
             reply_msg = db.query_message('where id={}'.format(msg.reply_to_msg_id))
             if reply_msg:
@@ -173,19 +180,20 @@ class HTMLTLWriter(HTMLWriter):
         # Write the message itself
         if msg.media:
             if isinstance(msg.media, MessageMediaPhoto):
-                self.write_img(path='../../../media/photos/{}.jpg'.format(msg.media.photo.id),
-                               fallback='../../../media/photos/default.png')
+                self.write_img(path='media/photos/{}.jpg'.format(msg.media.photo.id),
+                               fallback='media/photos/default.png')
             # TODO handle more media types
 
+        # Finally write the message content itself, if any
         if msg.message:
             self.open_tag('p')
             self.write_text(msg.message)
-            self.close_tag()
+            self.close_tag()  # p
 
         # Write the message date
         self.open_tag('p', _class='time', title=self.get_long_date(msg.date))
         self.write_text(self.get_short_date(msg.date))
-        self.close_tag()
+        self.close_tag()  # p
 
         self.close_tag()  # div
         self.close_tag()  # td
@@ -197,9 +205,8 @@ class HTMLTLWriter(HTMLWriter):
             self.write_propic(empty=True)
 
         self.close_tag()  # tr
-        pass
 
-    # endregion
+    #endregion
 
     # `with` block
 
@@ -210,4 +217,4 @@ class HTMLTLWriter(HTMLWriter):
         self.end_header()
         self.close()
 
-    # endregion
+    #endregion

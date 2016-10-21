@@ -6,13 +6,12 @@ from telethon.tl.types import \
     Chat, ChatEmpty, ChatForbidden, \
     Channel, ChannelForbidden
 
-from telethon.utils import BinaryReader
-from telethon.utils import BinaryWriter
+from telethon.utils import BinaryReader, BinaryWriter
 
 
 class TLDatabase:
 
-    # region Initialization
+    #region Initialization
 
     def __init__(self, db_file):
         """Loads (or creates) a TLDatabase (for storing TLObjects) for the given file path"""
@@ -97,9 +96,9 @@ class TLDatabase:
         photo blob                  -- 7
         )""")
 
-    # endregion
+    #endregion
 
-    # region Python -> SQL types
+    #region Python -> SQL types
 
     @staticmethod
     def adapt_boolean(boolean):
@@ -123,9 +122,9 @@ class TLDatabase:
             writer.tgwrite_vector(vector if vector is not None else [])
             return writer.get_bytes()
 
-    # endregion
+    #endregion
 
-    # region SQL -> Python types
+    #region SQL -> Python types
 
     @staticmethod
     def convert_boolean(sql):
@@ -150,9 +149,9 @@ class TLDatabase:
         with BinaryReader(blob) as reader:
             return reader.tgread_vector()
 
-    # endregion
+    #endregion
 
-    # region Conversion from SQL tuples to TLObjects
+    #region Conversion from SQL tuples to TLObjects
 
     @staticmethod
     def convert_message(sql_tuple):
@@ -221,9 +220,9 @@ class TLDatabase:
                        photo=TLDatabase.convert_object(sql_tuple[7]),
                        version=None)  # We don't care about the version in a channel backup
 
-    # endregion
+    #endregion
 
-    # region Adding objects
+    #region Adding objects
 
     def add_object(self, tlobject, replace=False):
         """Adds a Telegram object (TLObject) to its corresponding table"""
@@ -371,18 +370,18 @@ class TLDatabase:
                    getattr(channel, 'username'),
                    self.adapt_object(getattr(channel, 'photo'))))
 
-    # endregion
+    #endregion
 
-    # region Counting objects
+    #region Counting objects
 
     def count(self, tablename):
         """Returns the count of items in the specified table"""
         c = self.con.cursor()
         return c.execute('select count(*) from {}'.format(tablename)).fetchone()[0]
 
-    # endregion
+    #endregion
 
-    # region In table
+    #region In table
 
     def in_table(self, tlobject_id, tablename):
         """Determines whether a TLObject, given its ID, is in the specified table"""
@@ -390,11 +389,11 @@ class TLDatabase:
         item_id = c.execute('select id from {} where id=?'.format(tablename), (tlobject_id,)).fetchone()
         return item_id is not None
 
-    # endregion
+    #endregion
 
-    # region Querying
+    #region Querying
 
-    # region Querying multiple
+    #region Querying multiple
 
     def query_messages(self, query=''):
         """Query example: `order by id asc`"""
@@ -419,9 +418,9 @@ class TLDatabase:
         for item in c.execute('select * from {} {}'.format(tablename, query)):
             yield convert_function(item)
 
-    # endregion
+    #endregion
 
-    # region Querying single
+    #region Querying single
 
     def query_message(self, query=''):
         """Query example: `where id=123456789`"""
@@ -446,9 +445,9 @@ class TLDatabase:
         for item in c.execute('select * from {} {}'.format(tablename, query)):
             return convert_function(item)
 
-    # endregion
+    #endregion
 
-    # endregion
+    #endregion
 
     def commit(self):
         """Commit changes to the database"""
@@ -457,7 +456,7 @@ class TLDatabase:
     def close(self):
         self.con.close()
 
-    # region `with` block
+    #region `with` block
 
     def __enter__(self):
         return self
@@ -465,4 +464,4 @@ class TLDatabase:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
-    # endregion
+    #endregion

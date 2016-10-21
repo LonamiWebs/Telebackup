@@ -13,6 +13,7 @@ class ToggleButton(Button):
 
            (text and image both default to the unchecked state)"""
 
+        # Set the custom attributes and pop'em out
         self.unchecked_text = kwargs.get('text')
         self.unchecked_image = kwargs.get('image')
 

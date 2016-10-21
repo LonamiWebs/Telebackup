@@ -4,8 +4,8 @@ from os import path
 
 from telethon import TelegramClient
 
-from gui.main import start_app
-from gui.windows.login import LoginWindow
+from gui import start_app
+from gui.windows import LoginWindow
 
 
 cached_client = None

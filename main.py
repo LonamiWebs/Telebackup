@@ -1,5 +1,5 @@
-from gui.main import start_app
-from gui.windows.select_dialog import SelectDialogWindow
+from gui import start_app
+from gui.windows import SelectDialogWindow
 from utils import get_cached_client
 
 

@@ -20,9 +20,9 @@ class EntityCard(Frame):
         self.entity = kwargs.pop('entity')
 
         # Initialize the frame
+        kwargs['borderwidth'] = 2
+        kwargs['relief'] = 'ridge'
         super().__init__(master, **kwargs)
-
-        self.config(borderwidth=2, relief='ridge')
 
         # Set up our custom widget
         self.profile_picture = Label(self)

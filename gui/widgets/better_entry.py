@@ -1,7 +1,7 @@
 from tkinter import *
 from tkinter.ttk import *
 
-from gui.res.loader import load_png
+from gui.res import load_png
 
 
 class BetterEntry(Frame):
@@ -12,7 +12,6 @@ class BetterEntry(Frame):
          function paste_filter(clipboard_contents) returns string
     """
     def __init__(self, master=None, **kwargs):
-
         # Set the custom attributes and pop'em out
         self.max_length = kwargs.pop('max_length', None)
 
@@ -32,15 +31,17 @@ class BetterEntry(Frame):
 
         # Erase code button
         self.erase = Button(self,
-                               image=load_png('backspace'),
-                               command=self.clear)
+                            image=load_png('backspace'),
+                            command=self.clear)
         self.erase.grid(row=0, column=1)
 
         # Paste code button
         self.paste = Button(self,
-                               image=load_png('clipboard'),
-                               command=self.paste)
+                            image=load_png('clipboard'),
+                            command=self.paste)
         self.paste.grid(row=0, column=2)
+
+    #region Events
 
     def change(self, event=None):
         """Fired when the contents change. Also activates the validation function"""
@@ -50,6 +51,10 @@ class BetterEntry(Frame):
 
         if self.on_change:
             self.on_change()
+
+    #endregion
+
+    #region Actions
 
     def clear(self):
         """Clears the entry contents"""
@@ -87,3 +92,5 @@ class BetterEntry(Frame):
         self.entry.config(state=DISABLED)
         self.erase.config(state=DISABLED)
         self.paste.config(state=DISABLED)
+
+    #endregion
