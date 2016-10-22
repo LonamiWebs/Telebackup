@@ -72,7 +72,7 @@ class HTMLTLWriter(HTMLWriter):
         self.open_tag('html')
         self.open_tag('head')
 
-        self.tag('link', rel='stylesheet', type='text/css', href='../../../style.css')
+        self.tag('link', rel='stylesheet', type='text/css', href='../../style.css')
         self.tag('meta', charset='utf-8')
 
         self.close_tag()  # head
@@ -112,9 +112,9 @@ class HTMLTLWriter(HTMLWriter):
     #region Photos
 
     def write_img(self, path, fallback):
-        """Writes an image located at the given path. '../../../' will be always prefixed"""
-        path = '../../../'+path
-        fallback = '../../../'+fallback
+        """Writes an image located at the given path. '../../' will be always prefixed"""
+        path = '../../'+path
+        fallback = '../../'+fallback
         self.tag('img',
                  src=path,
                  onerror="if (this.src.indexOf('{0}') == -1) this.src = '{0}';".format(fallback))

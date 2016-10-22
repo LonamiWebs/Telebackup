@@ -8,40 +8,46 @@ from tl_database import TLDatabase
 
 class Exporter:
     """Class used to export database files"""
-    def __init__(self, output_dir='backups/exported'):
-        self.output_dir = output_dir
 
-        # Copy the required default resources
-        makedirs(output_dir, exist_ok=True)
-        copyfile('exporter/resources/style.css', path.join(output_dir, 'style.css'))
+    # Default output directory for all the exported backups
+    export_dir = 'backups/exported'
 
-        makedirs(path.join(output_dir, 'media/profile_photos'), exist_ok=True)
-        copyfile('exporter/resources/default_propic.png', path.join(output_dir, 'media/profile_photos/default.png'))
-
-        makedirs(path.join(output_dir, 'media/photos'), exist_ok=True)
-        copyfile('exporter/resources/default_photo.png', path.join(output_dir, 'media/photos/default.png'))
+    def __init__(self, db_file, name):
+        self.db_file = db_file
+        self.name = name
+        self.output_dir = path.join(Exporter.export_dir, name)
 
     #region Exporting databases
 
-    def export(self, db_file, name, callback=None):
+    def export(self, callback=None):
         """Exports the given database with the specified name.
            An optional callback function can be given with one
            dictionary parameter containing progress information
            (saved_msgs, total_msgs, etl)"""
 
-        Thread(target=self.export_thread, kwargs={
-            'db_file': db_file,
-            'name': name,
-            'callback': callback
-        }).start()
+        Thread(target=self.export_thread, kwargs={ 'callback': callback }).start()
 
-    def export_thread(self, db_file, name, callback):
+    def copy_default_media(self):
+        """Copies the default media and style sheets to the output directory"""
+
+        makedirs(self.output_dir, exist_ok=True)
+        copyfile('exporter/resources/style.css', path.join(self.output_dir, 'style.css'))
+
+        makedirs(path.join(self.output_dir, 'media/profile_photos'), exist_ok=True)
+        copyfile('exporter/resources/default_propic.png',
+                 path.join(self.output_dir, 'media/profile_photos/default.png'))
+
+        makedirs(path.join(self.output_dir, 'media/photos'), exist_ok=True)
+        copyfile('exporter/resources/default_photo.png',
+                 path.join(self.output_dir, 'media/photos/default.png'))
+
+    def export_thread(self, callback):
         """The exporting a conversation method (should be ran in a different thread)"""
 
-        # Save the function that will allow us to determine where to export a given date
-        out_file_func = self.get_output_file_function(name)
+        # First copy the default media files
+        self.copy_default_media()
 
-        with TLDatabase(db_file) as db:
+        with TLDatabase(self.db_file) as db:
             progress = {
                 'exported': 0,
                 'total': db.count('messages'),
@@ -55,7 +61,7 @@ class Exporter:
             following_date = self.get_previous_and_next_day(db, previous_date)[1]
 
             # Set the first writer (which will have the "previous" date, the first one)
-            writer = HTMLTLWriter(previous_date, out_file_func, following_date=following_date)
+            writer = HTMLTLWriter(previous_date, self.get_output_file, following_date=following_date)
 
             # Keep track from when we started to determine the estimated time left
             start = datetime.now()
@@ -74,7 +80,7 @@ class Exporter:
                     previous_date, following_date =\
                         self.get_previous_and_next_day(db, msg_date)
 
-                    writer = HTMLTLWriter(msg_date, out_file_func,
+                    writer = HTMLTLWriter(msg_date, self.get_output_file,
                                           previous_date=previous_date,
                                           following_date=following_date)
                     # Call the callback
@@ -98,21 +104,14 @@ class Exporter:
 
     #region Utilities
 
-    def get_output_file_function(self, name):
-        """Builds a function that, given a date, returns the output file path.
-           We need it this way because when exporting messages, if an user has replied
-           to a message which is in a different day, we need to know in which file it is,
-           so we can link back to it"""
-        def get_output_file(date):
-            """Retrieves the output file for the backup with the given name, in the given date.
-               An example might be 'backups/exported/year/MM/dd.html'"""
-            if date:
-                return path.abspath(path.join(self.output_dir,
-                                              name,
-                                              str(date.year),
-                                              str(date.month),
-                                              '{}.html'.format(date.day)))
-        return get_output_file
+    def get_output_file(self, date):
+        """Retrieves the output file for the backup with the given name, in the given date.
+           An example might be 'backups/exported/year/MM/dd.html'"""
+        if date:
+            return path.abspath(path.join(self.output_dir,
+                                          str(date.year),
+                                          str(date.month),
+                                          '{}.html'.format(date.day)))
 
     @staticmethod
     def get_previous_and_next_day(db, message_date):

@@ -172,9 +172,9 @@ class BackupWindow(Frame):
 
     def do_export(self):
         """Runs the export process"""
-        exporter = Exporter()
+        exporter = Exporter(self.backuper.files['database'], self.display)
         self.toggle_buttons(enabled=False)
-        exporter.export(self.backuper.files['database'], self.display, callback=self.on_export_callback)
+        exporter.export(callback=self.on_export_callback)
 
     def go_back(self):
         """Goes back to the previous (select dialog) window"""
