@@ -67,6 +67,17 @@ a.reply p {
     padding: 0 0 0 16px;
 }
 
+/* -------------------------- Animation after clicking a reply */
+
+div.msg:target {
+    /* 2 and alternate to go "from --1--> to --2--> from" */
+    animation: myfirst 1s ease-in-out 2 alternate;
+}
+
+@keyframes myfirst {
+    to { background: yellow;}
+}
+
 /* -------------------------- Time */
 
 p.time {

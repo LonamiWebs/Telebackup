@@ -5,13 +5,19 @@ from exporter import HTMLWriter
 class HTMLTLWriter(HTMLWriter):
     """Class implementing HTML Writer able to also write TLObjects"""
 
-    def __init__(self, file_path, current_date,
+    def __init__(self, current_date, out_file_func,
                  previous_date=None, following_date=None):
-        """Initializes a new HTMLTLWriter instance which outputs to the specified file.
-           Two optional previous/following days parameters can be given, which should consist
-           in a (date, string) tuple which values correspond to the day and
-           the file to which that date is associated"""
-        super().__init__(file_path)
+        """Initializes a new HTMLTLWriter for a current day which outputs to
+           out_file_func(current_date). The out_file_func must be a function
+           which takes a date as argument, and returns an .html file location.
+
+           Two optional previous/following dates parameters can be given which
+           dates should correspond to the previous and following days"""
+        self.current_date = current_date
+        self.out_file_func = out_file_func
+
+        super().__init__(out_file_func(current_date))
+
         self.start_header(current_date=current_date,
                           previous_date=previous_date,
                           following_date=following_date)
@@ -78,16 +84,16 @@ class HTMLTLWriter(HTMLWriter):
         self.open_tag('p')
 
         # Ensure that we both have a tuple and the tuple has two not-None values
-        if previous_date and previous_date[1]:
-            self.open_tag('a', href=previous_date[1], _class='date')
-            self.write_text(str(previous_date[0]))
+        if previous_date:
+            self.open_tag('a', href=self.out_file_func(previous_date), _class='date')
+            self.write_text(str(previous_date))
             self.close_tag()  # a
             self.write_text(' | ')
         self.write_text(str(current_date))
-        if following_date and following_date[1]:
+        if following_date:
             self.write_text(' | ')
-            self.open_tag('a', href=following_date[1], _class='date')
-            self.write_text(str(following_date[0]))
+            self.open_tag('a', href=self.out_file_func(following_date), _class='date')
+            self.write_text(str(following_date))
             self.close_tag()  # a
 
         self.close_tag()  # p
@@ -186,7 +192,10 @@ class HTMLTLWriter(HTMLWriter):
                 self.write_text(' who said:')
                 self.close_tag()  # p
 
-                self.open_tag('a', href='#msg-id-{}'.format(msg.reply_to_msg_id), _class='reply')
+                # Always write the absolute file path so we can navigate between different days
+                self.open_tag('a', _class='reply',
+                              href='{}#msg-id-{}'.format(self.out_file_func(reply_msg.date),
+                                                         msg.reply_to_msg_id))
                 self.open_tag('p')
                 self.write_text(self.get_reply_display(reply_msg))
                 self.close_tag()  # p

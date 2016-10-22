@@ -37,6 +37,10 @@ class Exporter:
 
     def export_thread(self, db_file, name, callback):
         """The exporting a conversation method (should be ran in a different thread)"""
+
+        # Save the function that will allow us to determine where to export a given date
+        out_file_func = self.get_output_file_function(name)
+
         with TLDatabase(db_file) as db:
             progress = {
                 'exported': 0,
@@ -51,8 +55,7 @@ class Exporter:
             following_date = self.get_previous_and_next_day(db, previous_date)[1]
 
             # Set the first writer (which will have the "previous" date, the first one)
-            writer = HTMLTLWriter(self.get_output_dir(name, previous_date), previous_date,
-                                  following_date=(following_date, self.get_output_dir(name, following_date)))
+            writer = HTMLTLWriter(previous_date, out_file_func, following_date=following_date)
 
             # Keep track from when we started to determine the estimated time left
             start = datetime.now()
@@ -71,9 +74,9 @@ class Exporter:
                     previous_date, following_date =\
                         self.get_previous_and_next_day(db, msg_date)
 
-                    writer = HTMLTLWriter(self.get_output_dir(name, msg_date), msg_date,
-                                          previous_date=(previous_date, self.get_output_dir(name, previous_date)),
-                                          following_date=(following_date, self.get_output_dir(name, following_date)))
+                    writer = HTMLTLWriter(msg_date, out_file_func,
+                                          previous_date=previous_date,
+                                          following_date=following_date)
                     # Call the callback
                     if callback:
                         progress['etl'] = self.calculate_etl(start, progress['exported'], progress['total'])
@@ -95,15 +98,21 @@ class Exporter:
 
     #region Utilities
 
-    def get_output_dir(self, name, date):
-        """Retrieves the output file for the backup with the given name, in the given date.
-           An example might be 'backups/exported/year/MM/dd.html'"""
-        if date:
-            return path.abspath(path.join(self.output_dir,
-                                          name,
-                                          str(date.year),
-                                          str(date.month),
-                                          '{}.html'.format(date.day)))
+    def get_output_file_function(self, name):
+        """Builds a function that, given a date, returns the output file path.
+           We need it this way because when exporting messages, if an user has replied
+           to a message which is in a different day, we need to know in which file it is,
+           so we can link back to it"""
+        def get_output_file(date):
+            """Retrieves the output file for the backup with the given name, in the given date.
+               An example might be 'backups/exported/year/MM/dd.html'"""
+            if date:
+                return path.abspath(path.join(self.output_dir,
+                                              name,
+                                              str(date.year),
+                                              str(date.month),
+                                              '{}.html'.format(date.day)))
+        return get_output_file
 
     @staticmethod
     def get_previous_and_next_day(db, message_date):
