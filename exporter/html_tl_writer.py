@@ -5,10 +5,16 @@ from exporter import HTMLWriter
 class HTMLTLWriter(HTMLWriter):
     """Class implementing HTML Writer able to also write TLObjects"""
 
-    def __init__(self, file_path):
-        """Initializes a new HTMLTLWriter instance which outputs to the specified file"""
+    def __init__(self, file_path, current_date,
+                 previous_date=None, following_date=None):
+        """Initializes a new HTMLTLWriter instance which outputs to the specified file.
+           Two optional previous/following days parameters can be given, which should consist
+           in a (date, string) tuple which values correspond to the day and
+           the file to which that date is associated"""
         super().__init__(file_path)
-        self.start_header()
+        self.start_header(current_date=current_date,
+                          previous_date=previous_date,
+                          following_date=following_date)
 
     #region Formatting utils
 
@@ -52,13 +58,9 @@ class HTMLTLWriter(HTMLWriter):
 
     #endregion
 
-    #region Internal database
-
-    #endregion
-
     #region Header
 
-    def start_header(self):
+    def start_header(self, current_date, previous_date=None, following_date=None):
         """Starts the "header" of the HTML file (containing head, style and body beginning)"""
         self.write('<!DOCTYPE html>')
         self.open_tag('html')
@@ -69,6 +71,28 @@ class HTMLTLWriter(HTMLWriter):
 
         self.close_tag()  # head
         self.open_tag('body')
+
+        # Add the current day floating div
+        self.open_tag('div', style='display:inline-block;width:100%;')
+        self.open_tag('div', _class='date')
+        self.open_tag('p')
+
+        # Ensure that we both have a tuple and the tuple has two not-None values
+        if previous_date and previous_date[1]:
+            self.open_tag('a', href=previous_date[1], _class='date')
+            self.write_text(str(previous_date[0]))
+            self.close_tag()  # a
+            self.write_text(' | ')
+        self.write_text(str(current_date))
+        if following_date and following_date[1]:
+            self.write_text(' | ')
+            self.open_tag('a', href=following_date[1], _class='date')
+            self.write_text(str(following_date[0]))
+            self.close_tag()  # a
+
+        self.close_tag()  # p
+        self.close_tag()  # div
+        self.close_tag()  # div
         self.open_tag('table', id='messages', width='100%')
 
     def end_header(self):
@@ -83,8 +107,8 @@ class HTMLTLWriter(HTMLWriter):
 
     def write_img(self, path, fallback):
         """Writes an image located at the given path. '../../../' will be always prefixed"""
-        path += '../../../'
-        fallback += '../../../'
+        path = '../../../'+path
+        fallback = '../../../'+fallback
         self.tag('img',
                  src=path,
                  onerror="if (this.src.indexOf('{0}') == -1) this.src = '{0}';".format(fallback))

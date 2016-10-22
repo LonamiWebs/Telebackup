@@ -1,11 +1,4 @@
-td {
-    vertical-align: top;
-    font-family: "Arial Black", Gadget, sans-serif;
-}
-
-p {
-    white-space: pre-wrap;
-}
+/* ----------------------------------------------------- Floating date */
 
 div.date {
     position: fixed;
@@ -29,17 +22,41 @@ div.date p {
     color: white;
 }
 
-hr {
-    border: none;
-    border-top: 0.5px solid #DDDDDD;
+a.date {
+    color: #40CFFF;
+    transition: border-bottom linear 0.1s;
 }
 
-img {
-    margin: 2%;
-    border-radius: 4px;
-    max-width: 96%;
-    max-height: 500px;
+a.date:hover {
+    border-bottom: 2px solid #40CFFF;
 }
+
+/* ----------------------------------------------------- Messages related */
+
+.in { float: left; }
+.out { float: right; }
+
+div.in { background-color: #F7F7F7; }
+div.out { background-color: #ECF7F7; }
+
+.msg {
+    max-width: 640px;
+    background-color: red;
+    word-wrap: break-word;
+}
+
+div.msg {
+    padding: 4px 8px;
+    border-radius: 8px;
+    min-width: 80px;
+}
+
+p.msg-header {
+    font-size: 8px;
+    margin: 0;
+}
+
+/* -------------------------- Replies */
 
 a.reply {
     color: #575757;
@@ -50,47 +67,16 @@ a.reply p {
     padding: 0 0 0 16px;
 }
 
+/* -------------------------- Time */
+
 p.time {
     font-size: 8px;
     text-align: right;
     margin: -12px -2px -2px 0px;
 }
 
-.in {
-    float: left;
-}
+/* -------------------------- Profile picture */
 
-.out {
-    float: right;
-}
-
-div.msg {
-    padding: 4px 8px;
-    border-radius: 8px;
-    min-width: 80px;
-}
-
-div.in {
-    background-color: #F7F7F7;
-}
-
-div.out {
-    background-color: #ECF7F7;
-}
-
-p.msg-header {
-    font-size: 8px;
-    margin: 0;
-}
-
-/* Message table cell */
-.msg {
-    max-width: 640px;
-    background-color: red;
-    word-wrap: break-word;
-}
-
-/* Profile picture */
 .propic {
     width: 64px;
     height: 64px;
@@ -98,4 +84,27 @@ p.msg-header {
 
 img.propic {
     border-radius: 100%;
+}
+
+/* ----------------------------------------------------- General style */
+
+td { vertical-align: top; }
+
+a { text-decoration: none; }
+
+p {
+    font-family: "Arial Black", Gadget, sans-serif;
+    white-space: pre-wrap;
+}
+
+hr {
+    border: none;
+    border-top: 0.5px solid #DDDDDD;
+}
+
+img {
+    margin: 2%;
+    border-radius: 4px;
+    max-width: 96%;
+    max-height: 500px;
 }
