@@ -173,8 +173,8 @@ class BackupWindow(Frame):
     def do_export(self):
         """Runs the export process"""
         exporter = Exporter()
-        exporter.export(self.backuper.files['database'], self.display)
-        pass
+        self.toggle_buttons(enabled=False)
+        exporter.export(self.backuper.files['database'], self.display, callback=self.on_export_callback)
 
     def go_back(self):
         """Goes back to the previous (select dialog) window"""
@@ -190,24 +190,38 @@ class BackupWindow(Frame):
 
     def on_metadata_change(self):
         """Occurs when the backuper's metadata changes"""
+        self.update_labels(current=self.backuper.metadata['saved_msgs'],
+                           total=self.backuper.metadata['total_msgs'],
+                           progress_type='messages saved',
+                           etl=self.backuper.metadata['etl'])
+
         # Do we have all the messages?
         have_all = self.backuper.metadata['saved_msgs'] == self.backuper.metadata['total_msgs']
-
-        # Update the text (saved/total), progress bar and estimated time left
-        self.text_progress.config(text='{}/{} messages saved{}'
-                                  .format(self.backuper.metadata['saved_msgs'],
-                                          self.backuper.metadata['total_msgs'],
-                                          ' (completed)' if have_all else ''))
-
-        self.progress.config(maximum=self.backuper.metadata['total_msgs'],
-                             value=self.backuper.metadata['saved_msgs'])
-
-        self.etl.config(text='Estimated time left: {}'.format(self.backuper.metadata['etl']))
 
         # If the backup finished (we have all the messages), toggle the pause button
         # The backup must also be running so we can stop it
         if have_all and self.backuper.backup_running:
             self.resume_pause.toggle(False)
+
+    def on_export_callback(self, progress):
+        """Occurs when the exporters progress changes"""
+        self.update_labels(current=progress['exported'],
+                           total=progress['total'],
+                           progress_type='messages exported',
+                           etl=progress['etl'])
+
+        if progress['exported'] == progress['total']:
+            self.toggle_buttons(enabled=True)
+
+    def update_labels(self, current, total, progress_type, etl):
+        """Updates the labels and progress given current/total and estimated time left.
+           Progress type should be "messages saved", "messages exported", etc."""
+        self.text_progress.config(text='{}/{} {}{}'.format(current, total, progress_type,
+                                                           ' (completed)' if (current == total) else ''))
+
+        self.progress.config(maximum=total, value=current)
+        self.etl.config(text='Estimated time left: {}'.format(etl))
+
 
     #endregion
 

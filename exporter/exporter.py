@@ -1,6 +1,7 @@
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from os import path, makedirs
 from shutil import copyfile
+from threading import Thread
 
 from exporter import HTMLTLWriter
 from tl_database import TLDatabase
@@ -22,9 +23,27 @@ class Exporter:
 
     #region Exporting databases
 
-    def export(self, db_file, name):
-        # TODO report progress every time a day changes
+    def export(self, db_file, name, callback=None):
+        """Exports the given database with the specified name.
+           An optional callback function can be given with one
+           dictionary parameter containing progress information
+           (saved_msgs, total_msgs, etl)"""
+
+        Thread(target=self.export_thread, kwargs={
+            'db_file': db_file,
+            'name': name,
+            'callback': callback
+        }).start()
+
+    def export_thread(self, db_file, name, callback):
+        """The exporting a conversation method (should be ran in a different thread)"""
         with TLDatabase(db_file) as db:
+            progress = {
+                'exported': 0,
+                'total': db.count('messages'),
+                'etl': 'Unknown'
+            }
+
             # The first date will obviously be the first day
             previous_date = self.get_message_date(db.query_message('order by id asc'))
 
@@ -35,9 +54,13 @@ class Exporter:
             writer = HTMLTLWriter(self.get_output_dir(name, previous_date), previous_date,
                                   following_date=(following_date, self.get_output_dir(name, following_date)))
 
+            # Keep track from when we started to determine the estimated time left
+            start = datetime.now()
+
             # Iterate over all the messages to export them in their respective days
             for msg in db.query_messages('order by id asc'):
                 msg_date = self.get_message_date(msg)
+                progress['exported'] += 1
 
                 # As soon as we're in the next day, update the output the writer
                 if msg_date != previous_date:
@@ -51,12 +74,22 @@ class Exporter:
                     writer = HTMLTLWriter(self.get_output_dir(name, msg_date), msg_date,
                                           previous_date=(previous_date, self.get_output_dir(name, previous_date)),
                                           following_date=(following_date, self.get_output_dir(name, following_date)))
+                    # Call the callback
+                    if callback:
+                        progress['etl'] = self.calculate_etl(start, progress['exported'], progress['total'])
+                        callback(progress)
+                    else:
+                        print(progress)
 
                 writer.write_message(msg, db)
                 previous_date = msg_date
 
             # Always exit at the end
             writer.__exit__(None, None, None)
+            # Call the callback to notify we've finished
+            if callback:
+                progress['etl'] = timedelta(seconds=0)
+                callback(progress)
 
     #endregion
 
@@ -81,6 +114,14 @@ class Exporter:
                                      .format(message_date+timedelta(days=1)))
 
         return Exporter.get_message_date(previous), Exporter.get_message_date(following)
+
+    @staticmethod
+    def calculate_etl(start, saved, total):
+        """Calculates the estimated time left, based on how long it took us
+           to reach "saved" and how many messages we have left"""
+        delta_time = (datetime.now() - start).total_seconds() / saved
+        left = total - saved
+        return timedelta(seconds=left * delta_time)
 
     @staticmethod
     def get_message_date(message):
