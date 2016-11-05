@@ -218,10 +218,15 @@ class BackupWindow(Frame):
            Progress type should be "messages saved", "messages exported", etc."""
         self.text_progress.config(text='{}/{} {}{}'.format(current, total, progress_type,
                                                            ' (completed)' if (current == total) else ''))
-
         self.progress.config(maximum=total, value=current)
-        self.etl.config(text='Estimated time left: {}'.format(etl))
 
+        # Strip extra 0's from the end of the string (we don't want "1.00000", for example)
+        etl = str(etl).rstrip('0')
+        # However maybe we stripped 0 seconds and now we have "0:00:", so fix that too
+        if etl[-1] == ':':
+            etl += '00'
+
+        self.etl.config(text='Estimated time left: {}'.format(etl))
 
     #endregion
 

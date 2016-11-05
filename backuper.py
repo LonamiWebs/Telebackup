@@ -1,6 +1,6 @@
 import json
 import shutil
-from datetime import timedelta
+from datetime import timedelta, datetime
 from os import makedirs, path, listdir
 from os.path import isfile, isdir
 from threading import Thread
@@ -190,9 +190,19 @@ class Backuper:
         # (instead of querying the database all the time)
         self.metadata['saved_msgs'] = db.count('messages')
 
+        # We also need to keep track of how many messages we've downloaded now
+        # in order to calculate the estimated time left properly
+        saved_msgs_now = 0
+
         # Make the backup
         try:
+            # We need this to invoke GetHistoryRequest
             input_peer = get_input_peer(self.entity)
+
+            # Keep track from when we started to determine the estimated time left
+            start = datetime.now()
+
+            # Enter the download-messages main loop
             while self.backup_running:
                 # Invoke the GetHistoryRequest to get the next messages after those we have
                 result = self.client.invoke(GetHistoryRequest(
@@ -223,11 +233,13 @@ class Backuper:
                         break
                     else:
                         db.add_object(msg)
+                        saved_msgs_now += 1
                         self.metadata['saved_msgs'] += 1
                         self.metadata['resume_msg_id'] = msg.id
 
                 self.metadata['etl'] = str(self.calculate_etl(
-                    self.metadata['saved_msgs'], self.metadata['total_msgs']))
+                    saved_msgs_now, self.metadata['total_msgs'],
+                    start=start))
 
                 # Always commit at the end to save changes
                 db.commit()
@@ -364,11 +376,28 @@ class Backuper:
 
     #region Utilities
 
-    def calculate_etl(self, downloaded, total):
-        """Calculates the Estimated Time Left (ETL)"""
+    def calculate_etl(self, downloaded, total, start=None):
+        """Calculates the estimated time left, based on how long it took us
+           to reach "downloaded" and how many messages we have left.
+           If we have no start time, it will simply by determined by how many chunks are left"""
         left = total - downloaded
-        chunks_left = (left + self.download_chunk_size - 1) // self.download_chunk_size
-        eta = chunks_left * self.download_delay
-        return timedelta(seconds=eta)
+        if not start:
+            # We add chunk size - 1 because division will truncate the decimal places,
+            # so for example, if we had a chunk size of 8:
+            #   7 messages + 7 = 14 -> 14 // 8 = 1 chunk download required
+            #   8 messages + 7 = 15 -> 15 // 8 = 1 chunk download required
+            #   9 messages + 7 = 16 -> 16 // 8 = 2 chunks download required
+            #
+            # Clearly, both 7 and 8 fit in one chunk, but 9 doesn't.
+            chunks_left = (left + self.download_chunk_size - 1) // self.download_chunk_size
+            etl = chunks_left * self.download_delay
+        else:
+            if downloaded:
+                delta_time = (datetime.now() - start).total_seconds() / downloaded
+                etl = left * delta_time
+            else:
+                etl = 0
+
+        return timedelta(seconds=round(etl, 1))
 
     #endregion

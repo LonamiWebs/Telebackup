@@ -129,7 +129,7 @@ class Exporter:
            to reach "saved" and how many messages we have left"""
         delta_time = (datetime.now() - start).total_seconds() / saved
         left = total - saved
-        return timedelta(seconds=left * delta_time)
+        return timedelta(seconds=round(left * delta_time, 1))
 
     @staticmethod
     def get_message_date(message):

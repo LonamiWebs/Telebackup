@@ -168,8 +168,15 @@ class HTMLTLWriter(HTMLWriter):
         if msg.fwd_from:
             self.write_text(', forwarded from ')
             self.open_tag('b')
-            sender = db.query_user('where id={}'.format(msg.fwd_from.from_id))
-            self.write_text(self.get_display(user=sender))
+
+            # The message could've been forwarded from either another user or from a channel
+            if msg.fwd_from.from_id:
+                sender = db.query_user('where id={}'.format(msg.fwd_from.from_id))
+                self.write_text(self.get_display(user=sender))
+            else:
+                sender = db.query_channel('where id={}'.format(msg.fwd_from.channel_id))
+                self.write_text(self.get_display(chat=sender))
+
             self.close_tag()  # b
 
             # When was the original message sent?
