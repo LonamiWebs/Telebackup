@@ -20,6 +20,9 @@ scheme_layer = all_tlobjects.layer
 del all_tlobjects
 
 
+AVERAGE_PROPIC_SIZE = 128 * 1024  # KB -> Bytes
+
+
 class Backuper:
 
     # Default output directory for all the made backups
@@ -62,6 +65,7 @@ class Backuper:
             'propic': path.join(self.directories['propics'],
                                 '{}.jpg'.format(self.entity.photo.photo_big.local_id))
         }
+        # TODO Crashes if the other user got us blocked (AttributeError: 'NoneType' object has no attribute 'photo_big')
 
         # Is the backup running (are messages being downloaded?)
         self.backup_running = False
@@ -163,8 +167,24 @@ class Backuper:
         """Begins the backup on the given peer"""
         Thread(target=self.backup_messages_thread).start()
 
+    def start_media_backup(self, **kwargs):
+        """Begins the media backup on the given peer.
+           The valid named arguments are:
+
+           dl_propics: Boolean value determining whether profile pictures should be downloaded
+           dl_photos: Boolean value determining whether photos should be downloaded
+           dl_docs: Boolean value determining whether documents (and gifs, and stickers) should be downloaded
+
+           docs_max_size: If specified, determines the maximum document size allowed in bytes
+           after_date: If specified, only media after this date will be downloaded
+           before_date: If specified, only media before this date will be downloaded
+
+           progress_callback: If specified, current download progress will be reported here
+                              invoking progress_callback(saved bytes, total bytes, estimated time left)"""
+        Thread(target=self.backup_media_thread, kwargs=kwargs).start()
+
     def stop_backup(self):
-        """Stops the backup on the given peer"""
+        """Stops the backup (either messages or media) on the given peer"""
         self.backup_running = False
 
     #region Messages backup
@@ -289,86 +309,109 @@ class Backuper:
                                                add_extension=False)
         return self.files['propic']
 
-    def begin_backup_media(self, dl_propics, dl_photos, dl_documents):
+    def calculate_download_size(self, dl_propics, dl_photos, dl_docs,
+                                docs_max_size=None, before_date=None, after_date=None):
+        """Estimates the download size, given some parameters"""
+        db = TLDatabase(self.files['database'])
+        total_size = 0
+
+        # TODO How does Telegram Desktop find out the profile photo size?
+        if dl_propics:
+            total_size += db.count('users where photo not null') * AVERAGE_PROPIC_SIZE
+
+        if dl_photos:
+            for msg in db.query_messages(self.get_query(MessageMediaPhoto, before_date, after_date)):
+                total_size += msg.media.photo.sizes[-1].size
+
+        if dl_docs:
+            for msg in db.query_messages(self.get_query(MessageMediaDocument, before_date, after_date)):
+                if not docs_max_size or msg.media.document.size <= docs_max_size:
+                    total_size += msg.media.document.size
+
+        return total_size
+
+    def backup_media_thread(self, dl_propics, dl_photos, dl_docs,
+                            docs_max_size=None, before_date=None, after_date=None,
+                            progress_callback=None):
         """Backups the specified media contained in the given database file"""
+        self.backup_running = True
 
         # Create a connection to the database
         db = TLDatabase(self.files['database'])
 
-        # TODO Spaghetti code, refactor
+        # Store how many bytes we have/how many bytes there are in total
+        current = 0
+        total = self.calculate_download_size(dl_propics, dl_photos, dl_docs,
+                                             docs_max_size, after_date, before_date)
+
+        # Keep track from when we started to determine the estimated time left
+        start = datetime.now()
+
         if dl_propics:
-            total = db.count('users where photo not null')
-            print("Starting download for {} users' profile photos..".format(total))
-            for i, user in enumerate(db.query_users('where photo not null')):
+            for user in db.query_users('where photo not null'):
                 output = path.join(self.directories['profile_photos'], '{}{}'
                                    .format(user.photo.photo_id, get_extension(user.photo)))
+                if not self.backup_running:
+                    return
 
                 # Try downloading the photo
                 try:
-                    if path.isfile(output):
-                        ok = True
-                    else:
-                        ok = self.client.download_profile_photo(user.photo,
-                                                                add_extension=False,
-                                                                file_path=output)
-                except RPCError:
-                    ok = False
+                    if not self.valid_file_exists(output):
+                        self.client.download_profile_photo(
+                            user.photo, add_extension=False, file_path=output)
+                        sleep(self.download_delay)
 
-                # Show the corresponding message
-                if ok:
-                    print('Downloaded {} out of {}, now for profile photo for "{}"'
-                          .format(i, total, get_display_name(user)))
-                else:
-                    print('Downloaded {} out of {}, could not download profile photo for "{}"'
-                          .format(i, total, get_display_name(user)))
+                except RPCError as e:
+                    print('Error downloading profile photo:', e)
+                finally:
+                    current += AVERAGE_PROPIC_SIZE
+                    if progress_callback:
+                        progress_callback(current, total, self.calculate_etl(current, total, start))
 
         if dl_photos:
-            total = db.count('messages where media_id = {}'.format(MessageMediaPhoto.constructor_id))
-            print("Starting download for {} photos...".format(total))
-            for i, msg in enumerate(db.query_messages('where media_id = {}'.format(MessageMediaPhoto.constructor_id))):
+            for msg in db.query_messages(self.get_query(MessageMediaPhoto, before_date, after_date)):
                 output = path.join(self.directories['photos'], '{}{}'
                                    .format(msg.media.photo.id, get_extension(msg.media)))
+                if not self.backup_running:
+                    return
 
                 # Try downloading the photo
                 try:
-                    if path.isfile(output):
-                        ok = True
-                    else:
-                        ok = self.client.download_msg_media(msg.media,
-                                                            add_extension=False,
-                                                            file_path=output)
-                except RPCError:
-                    ok = False
+                    if not self.valid_file_exists(output):
+                        self.client.download_msg_media(
+                            msg.media, add_extension=False, file_path=output)
+                        sleep(self.download_delay)
 
-                # Show the corresponding message
-                if ok:
-                    print('Downloaded {} out of {} photos'.format(i, total))
-                else:
-                    print('Photo {} out of {} download failed'.format(i, total))
+                except RPCError as e:
+                    print('Error downloading photo:', e)
+                finally:
+                    current += msg.media.photo.sizes[-1].size
+                    if progress_callback:
+                        progress_callback(current, total, self.calculate_etl(current, total, start))
 
-        if dl_documents:
-            total = db.count('messages where media_id = {}'.format(MessageMediaDocument.constructor_id))
-            print("Starting download for {} documents...".format(total))
-            for i, msg in enumerate(db.query_messages('where media_id = {}'.format(MessageMediaDocument.constructor_id))):
-                output = path.join(self.directories['documents'], '{}{}'
-                                   .format(msg.media.document.id, get_extension(msg.media)))
+        # TODO Add an internal callback to determine how the current document download is going,
+        # and update our currently saved bytes count based on that
+        if dl_docs:
+            for msg in db.query_messages(self.get_query(MessageMediaDocument, before_date, after_date)):
+                if not self.backup_running:
+                    return
 
-                # Try downloading the document
-                try:
-                    if path.isfile(output):
-                        ok = True
-                    else:
-                        ok = self.client.download_msg_media(msg.media,
-                                                            add_extension=False,
-                                                            file_path=output)
-                except RPCError:
-                    ok = False
+                if not docs_max_size or msg.media.document.size <= docs_max_size:
+                    output = path.join(self.directories['documents'], '{}{}'
+                                       .format(msg.media.document.id, get_extension(msg.media)))
+                    # Try downloading the document
+                    try:
+                        if not self.valid_file_exists(output):
+                            self.client.download_msg_media(
+                                msg.media, add_extension=False, file_path=output)
+                        sleep(self.download_delay)
 
-                # Show the corresponding message
-                if ok:
-                    print('Downloaded {} out of {} documents'.format(i, total))
-                else:
-                    print('Document {} out of {} download failed'.format(i, total))
+                    except RPCError as e:
+                        print('Error downloading document:', e)
+                    finally:
+                        current += msg.media.document.size
+                        if progress_callback:
+                            progress_callback(current, total, self.calculate_etl(current, total, start))
 
     #endregion
 
@@ -379,7 +422,9 @@ class Backuper:
     def calculate_etl(self, downloaded, total, start=None):
         """Calculates the estimated time left, based on how long it took us
            to reach "downloaded" and how many messages we have left.
-           If we have no start time, it will simply by determined by how many chunks are left"""
+
+           If no start time is given, the time will simply by estimated by how
+           many chunks are left, which will NOT work if what is being downloaded is media"""
         left = total - downloaded
         if not start:
             # We add chunk size - 1 because division will truncate the decimal places,
@@ -399,5 +444,22 @@ class Backuper:
                 etl = 0
 
         return timedelta(seconds=round(etl, 1))
+
+    @staticmethod
+    def get_query(clazz, before_date=None, after_date=None):
+        """Returns a database query filtering by media_id (its class),
+           and optionally range dates"""
+        filters = 'where media_id = {}'.format(clazz.constructor_id)
+        if before_date:
+            filters += " and date <= '{}'".format(before_date)
+        if after_date:
+            filters += " and date >= '{}'".format(after_date)
+        return filters
+
+    @staticmethod
+    def valid_file_exists(file):
+        """Determines whether a file exists and its "valid"
+           (i.e., the file size is greater than 0; if it's 0, it probably faild dueto an RPC error)"""
+        return path.isfile(file) and path.getsize(file) > 0
 
     #endregion

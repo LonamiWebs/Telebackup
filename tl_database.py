@@ -281,7 +281,7 @@ class TLDatabase:
                    msg.via_bot_id,
                    msg.reply_to_msg_id,
                    self.adapt_object(msg.media),
-                   msg.media.constructor_id if msg.media else None,
+                   type(msg.media).constructor_id if msg.media else None,
                    self.adapt_vector(msg.entities),
                    None,
                    None))
@@ -307,7 +307,7 @@ class TLDatabase:
                    None,
                    None,
                    self.adapt_object(msg.action),
-                   msg.action.constructor_id if msg.action else None))
+                   type(msg.action).constructor_id if msg.action else None))
 
     def add_user(self, user, replace=False):
         """Adds an user TLObject to its table"""

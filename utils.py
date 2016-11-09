@@ -49,6 +49,18 @@ def get_metadata(db_id):
         return json.load(file)
 
 
+def size_to_str(size):
+    """Converts a size, given in bytes length, to a string representation"""
+    #                                             Only to keep us covered (1024^8)
+    sizes = ['bytes', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB']
+    pos = 0
+    while size >= 1024:
+        size /= 1024
+        pos += 1
+
+    return '{:.2f} {}'.format(size, sizes[pos])
+
+
 def prompt_pick_backup(message):
     """Prompts the user to pick an existing database, and returns the
        selected choice database ID and its metadata"""

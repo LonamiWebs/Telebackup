@@ -11,8 +11,9 @@ from exporter.exporter import Exporter
 from gui import start_app
 from gui.res import load_png
 from gui.widgets import EntityCard, ToggleButton
+from gui.windows import SelectMediaDialog
 
-from utils import get_cached_client, sanitize_string
+from utils import get_cached_client, sanitize_string, size_to_str
 from telethon.utils import get_display_name
 
 
@@ -68,10 +69,13 @@ class BackupWindow(Frame):
         self.resume_pause.grid(row=0, sticky=NE)
 
         #                                                           Save (download) media
-        self.save_media = Button(self.left_column,
-                                 text='Save media',
-                                 image=load_png('download'),
-                                 compound=LEFT)
+        self.save_media = ToggleButton(self.left_column,
+                                       text='Save media',
+                                       image=load_png('download'),
+                                       checked_text='Cancel',
+                                       checked_image=load_png('cancel'),
+                                       on_toggle=self.prompt_save_media)
+        self.save_media_dialog_shown = False
         self.save_media.grid(row=1, sticky=N)
 
         #                                                           Export backup
@@ -154,6 +158,33 @@ class BackupWindow(Frame):
             self.backuper.stop_backup()
             self.toggle_buttons(True, self.resume_pause)
 
+    def prompt_save_media(self):
+        """Prompts the save media dialog, or cancels the current media download"""
+        if self.save_media_dialog_shown:
+            return
+
+        if self.save_media.is_checked:
+            self.toggle_buttons(False, self.save_media)
+
+            self.save_media_dialog_shown = True
+            result = SelectMediaDialog.show_dialog(self,
+                                                   size_calculator=self.backuper.calculate_download_size)
+            self.save_media_dialog_shown = False
+
+            # Start the backup or restore the buttons depending on action
+            if result:
+                # Set a callback on the resulting dictionary
+                result['progress_callback'] = lambda c, t, etl: \
+                    self.update_labels(c, t, 'media downloaded', etl=etl,
+                                       value_representation=size_to_str)
+
+                self.backuper.start_media_backup(**result)
+            else:
+                self.save_media.toggle(checked=False)
+        else:
+            self.backuper.stop_backup()
+            self.toggle_buttons(True, self.save_media)
+
     def delete_backup(self):
         """Asks the user whether to delete the current backup and goes back to the previous window"""
         do_delete = askquestion('Please read carefully',
@@ -213,10 +244,14 @@ class BackupWindow(Frame):
         if progress['exported'] == progress['total']:
             self.toggle_buttons(enabled=True)
 
-    def update_labels(self, current, total, progress_type, etl):
+    def update_labels(self, current, total, progress_type, etl, value_representation=str):
         """Updates the labels and progress given current/total and estimated time left.
-           Progress type should be "messages saved", "messages exported", etc."""
-        self.text_progress.config(text='{}/{} {}{}'.format(current, total, progress_type,
+           Progress type should be "messages saved", "messages exported", etc.
+
+           value_representation should be a function taking a float value and returning a string"""
+        self.text_progress.config(text='{}/{} {}{}'.format(value_representation(current),
+                                                           value_representation(total),
+                                                           progress_type,
                                                            ' (completed)' if (current == total) else ''))
         self.progress.config(maximum=total, value=current)
 

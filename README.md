@@ -10,6 +10,8 @@ You need the following Python packages in order for Telebackup to work:
 - `telethon` ([GitHub](https://github.com/LonamiWebs/Telethon), [PyPi](https://pypi.python.org/pypi/Telethon/))
 - `pillow` ([GitHub](https://github.com/python-pillow/Pillow/), [PyPi](https://pypi.python.org/pypi/Pillow/))
 
+In case you encounter the error "ImportError: No module named 'PIL'", you may need to reinstall `pillow`.
+
 ## Important notes
 Please note that this program will **not** update those messages which were edited (as of now)! This is, after you
 backup a conversation, if you edit messages which were included in the backup, they will not be updated.
