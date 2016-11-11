@@ -33,13 +33,13 @@ class Exporter:
         makedirs(self.output_dir, exist_ok=True)
         copyfile('exporter/resources/style.css', path.join(self.output_dir, 'style.css'))
 
-        makedirs(path.join(self.output_dir, 'media/profile_photos'), exist_ok=True)
+        makedirs(self.get_media_file('profile_photos'), exist_ok=True)
         copyfile('exporter/resources/default_propic.png',
-                 path.join(self.output_dir, 'media/profile_photos/default.png'))
+                 path.join(self.get_media_file('profile_photos'), 'default.png'))
 
-        makedirs(path.join(self.output_dir, 'media/photos'), exist_ok=True)
+        makedirs(self.get_media_file('photos'), exist_ok=True)
         copyfile('exporter/resources/default_photo.png',
-                 path.join(self.output_dir, 'media/photos/default.png'))
+                 path.join(self.get_media_file('photos'), 'default.png'))
 
     def export_thread(self, callback):
         """The exporting a conversation method (should be ran in a different thread)"""
@@ -61,7 +61,8 @@ class Exporter:
             following_date = self.get_previous_and_next_day(db, previous_date)[1]
 
             # Set the first writer (which will have the "previous" date, the first one)
-            writer = HTMLTLWriter(previous_date, self.get_output_file, following_date=following_date)
+            writer = HTMLTLWriter(previous_date, self.get_output_file, self.get_media_file,
+                                  following_date=following_date)
 
             # Keep track from when we started to determine the estimated time left
             start = datetime.now()
@@ -80,7 +81,7 @@ class Exporter:
                     previous_date, following_date =\
                         self.get_previous_and_next_day(db, msg_date)
 
-                    writer = HTMLTLWriter(msg_date, self.get_output_file,
+                    writer = HTMLTLWriter(msg_date, self.get_output_file, self.get_media_file,
                                           previous_date=previous_date,
                                           following_date=following_date)
                     # Call the callback
@@ -112,6 +113,9 @@ class Exporter:
                                           str(date.year),
                                           str(date.month),
                                           '{}.html'.format(date.day)))
+
+    def get_media_file(self, media_type, filename=''):
+        return path.abspath(path.join(self.output_dir, 'media', media_type, filename))
 
     @staticmethod
     def get_previous_and_next_day(db, message_date):
