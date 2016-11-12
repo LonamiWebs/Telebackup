@@ -1,5 +1,6 @@
 import sqlite3
 
+from os import path, makedirs
 from telethon.tl.types import \
     Message, MessageService, \
     User, UserEmpty, \
@@ -13,7 +14,7 @@ class TLDatabase:
 
     #region Initialization
 
-    def __init__(self, db_file):
+    def __init__(self, directory):
         """Loads (or creates) a TLDatabase (for storing TLObjects) for the given file path"""
 
         # Register adapters and converters
@@ -21,7 +22,9 @@ class TLDatabase:
         sqlite3.register_converter('bool', self.convert_boolean)
 
         # Create a connection
-        self.con = sqlite3.connect(db_file, detect_types=sqlite3.PARSE_DECLTYPES)
+        makedirs(directory, exist_ok=True)
+        self.con = sqlite3.connect(path.join(directory, 'db.sqlite'),
+                                   detect_types=sqlite3.PARSE_DECLTYPES)
 
         # We store the media, entities and action as blobs, because they're hardly encoded
         # However, we do store the media ID, so we can query, for example, which messages have photos

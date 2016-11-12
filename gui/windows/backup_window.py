@@ -203,7 +203,7 @@ class BackupWindow(Frame):
 
     def do_export(self):
         """Runs the export process"""
-        exporter = Exporter(self.backuper.files['database'], self.display)
+        exporter = Exporter(self.backuper.backup_dir, self.display)
         self.toggle_buttons(enabled=False)
         exporter.export(callback=self.on_export_callback)
 

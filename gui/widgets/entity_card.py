@@ -54,7 +54,8 @@ class EntityCard(Frame):
 
     def update_profile_photo(self, photo_file):
         """Updates the profile photo"""
-        self.profile_picture_photo = ImageTk.PhotoImage(
-            Image.open(photo_file).resize((128, 128), Image.ANTIALIAS))
+        if photo_file:
+            self.profile_picture_photo = ImageTk.PhotoImage(
+                Image.open(photo_file).resize((128, 128), Image.ANTIALIAS))
 
-        self.profile_picture.config(image=self.profile_picture_photo)
+            self.profile_picture.config(image=self.profile_picture_photo)

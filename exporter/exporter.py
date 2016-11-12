@@ -3,7 +3,11 @@ from os import path, makedirs
 from shutil import copyfile
 from threading import Thread
 
+from os.path import isfile
+from telethon.tl.types import MessageMediaPhoto
+
 from exporter import HTMLTLWriter
+from media_handler import MediaHandler
 from tl_database import TLDatabase
 
 class Exporter:
@@ -12,10 +16,11 @@ class Exporter:
     # Default output directory for all the exported backups
     export_dir = 'backups/exported'
 
-    def __init__(self, db_file, name):
-        self.db_file = db_file
+    def __init__(self, backups_dir, name):
+        self.backups_dir = backups_dir
         self.name = name
         self.output_dir = path.join(Exporter.export_dir, name)
+        self.media_handler = MediaHandler(self.output_dir)
 
     #region Exporting databases
 
@@ -33,21 +38,22 @@ class Exporter:
         makedirs(self.output_dir, exist_ok=True)
         copyfile('exporter/resources/style.css', path.join(self.output_dir, 'style.css'))
 
-        makedirs(self.get_media_file('profile_photos'), exist_ok=True)
+        self.media_handler.make_tree()
         copyfile('exporter/resources/default_propic.png',
-                 path.join(self.get_media_file('profile_photos'), 'default.png'))
+                 self.media_handler.get_default_file('propics'))
 
-        makedirs(self.get_media_file('photos'), exist_ok=True)
         copyfile('exporter/resources/default_photo.png',
-                 path.join(self.get_media_file('photos'), 'default.png'))
+                 self.media_handler.get_default_file('photos'))
 
     def export_thread(self, callback):
         """The exporting a conversation method (should be ran in a different thread)"""
 
-        # First copy the default media files
-        self.copy_default_media()
+        with TLDatabase(self.backups_dir) as db:
+            db_media_handler = MediaHandler(self.backups_dir)
 
-        with TLDatabase(self.db_file) as db:
+            # First copy the default media files
+            self.copy_default_media()
+
             progress = {
                 'exported': 0,
                 'total': db.count('messages'),
@@ -55,17 +61,27 @@ class Exporter:
             }
 
             # The first date will obviously be the first day
+            # TODO This fails if there are 0 messages in the database, export should be disabled!
             previous_date = self.get_message_date(db.query_message('order by id asc'))
 
             # Also find the next day
             following_date = self.get_previous_and_next_day(db, previous_date)[1]
 
             # Set the first writer (which will have the "previous" date, the first one)
-            writer = HTMLTLWriter(previous_date, self.get_output_file, self.get_media_file,
+            writer = HTMLTLWriter(previous_date, self.media_handler,
                                   following_date=following_date)
 
             # Keep track from when we started to determine the estimated time left
             start = datetime.now()
+
+            # Export the profile photos, from users chats and channels
+            # TODO This should also have a progress if we have a backup of thousands of files!
+            for user in db.query_users():
+                if user.photo:
+                    source = db_media_handler.get_propic_path(user)
+                    output = self.media_handler.get_propic_path(user)
+                    if isfile(source):
+                        copyfile(source, output)
 
             # Iterate over all the messages to export them in their respective days
             for msg in db.query_messages('order by id asc'):
@@ -81,7 +97,7 @@ class Exporter:
                     previous_date, following_date =\
                         self.get_previous_and_next_day(db, msg_date)
 
-                    writer = HTMLTLWriter(msg_date, self.get_output_file, self.get_media_file,
+                    writer = HTMLTLWriter(msg_date, self.media_handler,
                                           previous_date=previous_date,
                                           following_date=following_date)
                     # Call the callback
@@ -92,6 +108,14 @@ class Exporter:
                         print(progress)
 
                 writer.write_message(msg, db)
+                # If the message has media, we need to copy it so it's accessible by the exported HTML
+                if msg.media:
+                    source = db_media_handler.get_msg_media_path(msg)
+                    output = self.media_handler.get_msg_media_path(msg)
+                    # Source may be None if the media is unsupported (i.e. a webpage)
+                    if source and isfile(source):
+                        copyfile(source, output)
+
                 previous_date = msg_date
 
             # Always exit at the end
@@ -104,18 +128,6 @@ class Exporter:
     #endregion
 
     #region Utilities
-
-    def get_output_file(self, date):
-        """Retrieves the output file for the backup with the given name, in the given date.
-           An example might be 'backups/exported/year/MM/dd.html'"""
-        if date:
-            return path.abspath(path.join(self.output_dir,
-                                          str(date.year),
-                                          str(date.month),
-                                          '{}.html'.format(date.day)))
-
-    def get_media_file(self, media_type, filename=''):
-        return path.abspath(path.join(self.output_dir, 'media', media_type, filename))
 
     @staticmethod
     def get_previous_and_next_day(db, message_date):

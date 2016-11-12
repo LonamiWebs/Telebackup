@@ -7,23 +7,21 @@ from exporter import HTMLFormatter
 class HTMLTLWriter:
     """Class implementing HTML Writer able to also write TLObjects"""
 
-    def __init__(self, current_date, out_file_func, out_media_func,
+    def __init__(self, current_date, media_handler,
                  previous_date=None, following_date=None):
         """Initializes a new HTMLTLWriter for a current day which outputs to
-           out_file_func(current_date). The out_file_func must be a function
-           which takes a date as argument, and returns an .html file location.
+           out_file_func(current_date).
 
-           Similarly, the out_media_func must be a function that takes a media
-           type as required parameter and an optional file name, returning
-           where that filename should be located depending on the media type.
+           A media handler must be given so the generated files know where
+           to look for, for example, images, profile pictures, etc.
 
            Two optional previous/following dates parameters can be given which
            dates should correspond to the previous and following days"""
         self.current_date = current_date
-        self.formatter = HTMLFormatter(out_file_func, out_media_func)
+        self.formatter = HTMLFormatter(media_handler)
 
         # Open the current output file and store its handle
-        output_file = out_file_func(current_date)
+        output_file = media_handler.get_html_path(current_date)
         makedirs(dirname(output_file), exist_ok=True)
         self.handle = open(output_file, 'w')
 

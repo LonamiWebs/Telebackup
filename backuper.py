@@ -1,7 +1,7 @@
 import json
 import shutil
 from datetime import timedelta, datetime
-from os import makedirs, path, listdir
+from os import path, listdir, remove
 from os.path import isfile, isdir
 from threading import Thread
 from time import sleep
@@ -12,8 +12,9 @@ from telethon.tl.functions.messages import GetHistoryRequest
 from telethon.tl.types import MessageMediaPhoto, MessageMediaDocument
 from telethon.utils import \
     BinaryReader, BinaryWriter, \
-    get_display_name, get_extension, get_input_peer
+    get_input_peer
 
+from media_handler import MediaHandler
 from tl_database import TLDatabase
 
 scheme_layer = all_tlobjects.layer
@@ -24,7 +25,6 @@ AVERAGE_PROPIC_SIZE = 128 * 1024  # KB -> Bytes
 
 
 class Backuper:
-
     # Default output directory for all the made backups
     backups_dir = 'backups'
 
@@ -47,23 +47,15 @@ class Backuper:
         self.download_chunk_size = download_chunk_size
 
         self.backup_dir = path.join(Backuper.backups_dir, str(entity.id))
+        self.media_handler = MediaHandler(self.backup_dir)
+
+        # Open and close the database to create the require directories
+        TLDatabase(self.backup_dir).close()
 
         # Set up all the directories and files that we'll be needing
-        self.directories = {
-            'propics': path.join(self.backup_dir, 'propics'),
-
-            'profile_photos': path.join(self.backup_dir, 'media', 'profile_photos'),
-            'photos': path.join(self.backup_dir, 'media', 'photos'),
-            'documents': path.join(self.backup_dir, 'media', 'documents'),
-            'stickers': path.join(self.backup_dir, 'media', 'stickers')
-        }
-
         self.files = {
             'entity': path.join(self.backup_dir, 'entity.tlo'),
-            'metadata': path.join(self.backup_dir, 'metadata.json'),
-            'database': path.join(self.backup_dir, 'backup.sqlite'),
-            'propic': path.join(self.directories['propics'],
-                                '{}.jpg'.format(self.entity.photo.photo_big.local_id))
+            'metadata': path.join(self.backup_dir, 'metadata.json')
         }
         # TODO Crashes if the other user got us blocked (AttributeError: 'NoneType' object has no attribute 'photo_big')
 
@@ -72,11 +64,6 @@ class Backuper:
 
         # Event that gets fired when metadata is saved
         self.on_metadata_change = None
-
-        # Ensure the directory for the backups
-        makedirs(self.backup_dir, exist_ok=True)
-        for directory in self.directories.values():
-            makedirs(directory, exist_ok=True)
 
         # Save the entity and load the metadata
         with open(self.files['entity'], 'wb') as file:
@@ -194,7 +181,7 @@ class Backuper:
         self.backup_running = True
 
         # Create a connection to the database
-        db = TLDatabase(self.files['database'])
+        db = TLDatabase(self.backup_dir)
 
         # Determine whether we started making the backup from the very first message or not.
         # If this is the case:
@@ -302,33 +289,45 @@ class Backuper:
     def backup_propic(self):
         """Backups the profile picture for the given
            entity as the current peer profile picture, returning its path"""
-        if not isfile(self.files['propic']):
-            # Only download the file if it doesn't exist yet
-            self.client.download_profile_photo(self.entity.photo,
-                                               file_path=self.files['propic'],
-                                               add_extension=False)
-        return self.files['propic']
+
+        # Allow multiple versions of the profile picture
+        # TODO Maybe this should be another method, because when downloading media... We also have multiple versions
+        filename = self.media_handler.get_propic_path(self.entity, allow_multiple=True)
+        generic_filename = self.media_handler.get_propic_path(self.entity)
+        if filename:  # User may not have a profile picture
+            if not isfile(filename):
+                # Only download the file if it doesn't exist yet
+                self.client.download_profile_photo(self.entity.photo,
+                                                   file_path=filename,
+                                                   add_extension=False)
+                # If we downloaded a new version, copy it to the "default" generic file
+                if isfile(generic_filename):
+                    remove(generic_filename)
+                shutil.copy(filename, generic_filename)
+
+            # The user may not have a profile picture
+            return generic_filename
 
     def calculate_download_size(self, dl_propics, dl_photos, dl_docs,
                                 docs_max_size=None, before_date=None, after_date=None):
         """Estimates the download size, given some parameters"""
-        db = TLDatabase(self.files['database'])
-        total_size = 0
+        with TLDatabase(self.backup_dir) as db:
+            total_size = 0
 
-        # TODO How does Telegram Desktop find out the profile photo size?
-        if dl_propics:
-            total_size += db.count('users where photo not null') * AVERAGE_PROPIC_SIZE
+            # TODO How does Telegram Desktop find out the profile photo size?
+            if dl_propics:
+                total_size += db.count('users where photo not null') * AVERAGE_PROPIC_SIZE
 
-        if dl_photos:
-            for msg in db.query_messages(self.get_query(MessageMediaPhoto, before_date, after_date)):
-                total_size += msg.media.photo.sizes[-1].size
+            if dl_photos:
+                for msg in db.query_messages(self.get_query(MessageMediaPhoto, before_date, after_date)):
+                    total_size += msg.media.photo.sizes[-1].size
 
-        if dl_docs:
-            for msg in db.query_messages(self.get_query(MessageMediaDocument, before_date, after_date)):
-                if not docs_max_size or msg.media.document.size <= docs_max_size:
-                    total_size += msg.media.document.size
+            if dl_docs:
+                for msg in db.query_messages(self.get_query(MessageMediaDocument, before_date, after_date)):
+                    if not docs_max_size or msg.media.document.size <= docs_max_size:
+                        total_size += msg.media.document.size
 
-        return total_size
+            return total_size
 
     def backup_media_thread(self, dl_propics, dl_photos, dl_docs,
                             docs_max_size=None, before_date=None, after_date=None,
@@ -337,7 +336,7 @@ class Backuper:
         self.backup_running = True
 
         # Create a connection to the database
-        db = TLDatabase(self.files['database'])
+        db = TLDatabase(self.backup_dir)
 
         # Store how many bytes we have/how many bytes there are in total
         current = 0
@@ -348,13 +347,12 @@ class Backuper:
         start = datetime.now()
 
         if dl_propics:
+            # TODO Also query chats and channels
             for user in db.query_users('where photo not null'):
-                output = path.join(self.directories['profile_photos'], '{}{}'
-                                   .format(user.photo.photo_id, get_extension(user.photo)))
                 if not self.backup_running:
                     return
-
                 # Try downloading the photo
+                output = self.media_handler.get_propic_path(user)
                 try:
                     if not self.valid_file_exists(output):
                         self.client.download_profile_photo(
@@ -370,12 +368,10 @@ class Backuper:
 
         if dl_photos:
             for msg in db.query_messages(self.get_query(MessageMediaPhoto, before_date, after_date)):
-                output = path.join(self.directories['photos'], '{}{}'
-                                   .format(msg.media.photo.id, get_extension(msg.media)))
                 if not self.backup_running:
                     return
-
                 # Try downloading the photo
+                output = self.media_handler.get_msg_media_path(msg)
                 try:
                     if not self.valid_file_exists(output):
                         self.client.download_msg_media(
@@ -397,9 +393,8 @@ class Backuper:
                     return
 
                 if not docs_max_size or msg.media.document.size <= docs_max_size:
-                    output = path.join(self.directories['documents'], '{}{}'
-                                       .format(msg.media.document.id, get_extension(msg.media)))
                     # Try downloading the document
+                    output = self.media_handler.get_msg_media_path(msg)
                     try:
                         if not self.valid_file_exists(output):
                             self.client.download_msg_media(
@@ -412,6 +407,7 @@ class Backuper:
                         current += msg.media.document.size
                         if progress_callback:
                             progress_callback(current, total, self.calculate_etl(current, total, start))
+        db.close()
 
     #endregion
 

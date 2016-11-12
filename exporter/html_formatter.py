@@ -6,14 +6,9 @@ class HTMLFormatter:
     """Class with the ability to format HTML content constants,
        provided the appropriated values"""
 
-    def __init__(self, out_file_func, out_media_func):
-        """Initializes the HTML Formatter. Two functions must be given:
-            :param out_file_func: Takes a date as input and returns the output HTML file corresponding to it
-            :param out_media_func: Takes a media type, and an optional file name,
-                                   and returns the path to its corresponding media file
-        """
-        self.get_file_path = out_file_func
-        self.get_media_path = out_media_func
+    def __init__(self, media_handler):
+        """Initializes the HTML Formatter. A media handler must be given"""
+        self.media_handler = media_handler
 
     #region Internal formatting
 
@@ -86,7 +81,7 @@ class HTMLFormatter:
         if previous_date:
             dates += self.get_link_date(previous_date)
             dates += ' | '
-            dates += str(current_date)
+        dates += str(current_date)
         if following_date:
             dates += ' | '
             dates += self.get_link_date(following_date)
@@ -108,23 +103,27 @@ class HTMLFormatter:
 
     def get_link_date(self, date):
         """Retrieves the date as a link to navigate to the file specified by the date"""
-        return LINK_DATE.format(file=self.get_file_path(date),
+        return LINK_DATE.format(file=self.media_handler.get_html_path(date),
                                 date=str(date))
 
     #endregion
 
     #region Images
 
-    def get_img(self, media_type, name, default='default.png'):
+    def get_msg_img(self, msg):
         """Formats the given name as media type, with a default fallback"""
-        return IMG.format(file=self.get_media_path(media_type, name),
-                          fallback=self.get_media_path(media_type, default))
+        return IMG.format(file=self.media_handler.get_msg_media_path(msg),
+                          fallback=self.media_handler.get_default_file('photos'))
+
+    def get_propic_img(self, user_id):
+        return IMG.format(file=self.media_handler.get_propic_path(user_id),
+                          fallback=self.media_handler.get_default_file('propics'))
 
     def get_propic(self, msg=None):
         """Retrieves the profile picture table cell, if any message is given.
            Otherwise, the <td/> will be empty"""
         if msg:
-            return PROPIC.format(img=self.get_img('profile_photos', '{}.jpg'.format(msg.from_id)))
+            return PROPIC.format(img=self.get_propic_img(msg.from_id))
         else:
             return PROPIC_EMPTY
 
@@ -143,7 +142,8 @@ class HTMLFormatter:
                 replied_sender = db.query_user('where id={}'.format(reply_msg.from_id))
 
                 # Always write the absolute file path so we can navigate between different days
-                replied_id_link = '{}#msg-id-{}'.format(self.get_file_path(reply_msg.date), msg.reply_to_msg_id)
+                replied_id_link = '{}#msg-id-{}'.format(
+                    self.media_handler.get_html_path(reply_msg.date), msg.reply_to_msg_id)
 
                 return MESSAGE_HEADER_REPLY.format(
                     sender=self.get_display(user=sender),
@@ -182,7 +182,7 @@ class HTMLFormatter:
         result = ''
         if msg.media:
             if isinstance(msg.media, MessageMediaPhoto):
-                result += self.get_img('photos', '{}.jpg'.format(msg.media.photo.id))
+                result += self.get_msg_img(msg)
                 # TODO handle more media types
 
         if msg.message:
@@ -210,4 +210,4 @@ class HTMLFormatter:
 
         return result
 
-    #endregion
+        #endregion
