@@ -2,6 +2,7 @@ from tkinter import *
 from tkinter.ttk import *
 
 from PIL import ImageTk, Image
+from os.path import isfile
 from telethon.utils import get_display_name
 
 from utils import sanitize_string
@@ -54,7 +55,7 @@ class EntityCard(Frame):
 
     def update_profile_photo(self, photo_file):
         """Updates the profile photo"""
-        if photo_file:
+        if photo_file and isfile(photo_file):
             self.profile_picture_photo = ImageTk.PhotoImage(
                 Image.open(photo_file).resize((128, 128), Image.ANTIALIAS))
 

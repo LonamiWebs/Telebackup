@@ -10,6 +10,8 @@ import telethon.tl.all_tlobjects as all_tlobjects
 from telethon import RPCError
 from telethon.tl.functions.messages import GetHistoryRequest
 from telethon.tl.types import MessageMediaPhoto, MessageMediaDocument
+from telethon.tl.types.messages import Messages, MessagesSlice
+
 from telethon.utils import \
     BinaryReader, BinaryWriter, \
     get_input_peer
@@ -77,7 +79,7 @@ class Backuper:
 
     def save_metadata(self):
         """Saves the metadata for the current entity"""
-        with open(self.files['metadata'], 'w') as file:
+        with open(self.files['metadata'], 'w', encoding='utf-8') as file:
             json.dump(self.metadata, file)
 
         if self.on_metadata_change:
@@ -94,7 +96,7 @@ class Backuper:
                 'scheme_layer': scheme_layer
             }
         else:
-            with open(self.files['metadata'], 'r') as file:
+            with open(self.files['metadata'], 'r', encoding='utf-8') as file:
                 return json.load(file)
 
     def update_total_messages(self):
@@ -221,6 +223,13 @@ class Backuper:
                     max_id=0,
                     min_id=0
                 ))
+                # For some strange reason, GetHistoryRequest might return upload.file.File
+                # Ensure we retrieved Messages or MessagesSlice
+                if not isinstance(result, Messages) and not isinstance(result, MessagesSlice):
+                    print('Invalid result type when downloading messages:', type(result))
+                    sleep(self.download_delay)
+                    continue
+
                 self.metadata['total_msgs'] = getattr(result, 'count', len(result.messages))
 
                 # First add users and chats, replacing any previous value

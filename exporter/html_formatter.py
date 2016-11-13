@@ -135,7 +135,7 @@ class HTMLFormatter:
 
     def get_link_date(self, date):
         """Retrieves the date as a link to navigate to the file specified by the date"""
-        return LINK_DATE.format(file=self.media_handler.get_html_path(date),
+        return LINK_DATE.format(uri=self.media_handler.get_html_uri(date),
                                 date=str(date))
 
     #endregion
@@ -181,7 +181,7 @@ class HTMLFormatter:
 
                 # Always write the absolute file path so we can navigate between different days
                 replied_id_link = '{}#msg-id-{}'.format(
-                    self.media_handler.get_html_path(reply_msg.date), msg.reply_to_msg_id)
+                    self.media_handler.get_html_uri(reply_msg.date), msg.reply_to_msg_id)
 
                 result += MESSAGE_HEADER_REPLY.format(
                     sender=self.get_display(user=sender),

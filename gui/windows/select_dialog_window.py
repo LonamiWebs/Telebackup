@@ -66,7 +66,7 @@ class SelectDialogWindow(Frame):
 
         for entity in self.entities:
             display = sanitize_string(get_display_name(entity))
-            if search in display.lower():
+            if display and search in display.lower():
                 self.conversation_list.insert(END, display)
 
     #endregion

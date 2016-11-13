@@ -27,8 +27,8 @@ def load_settings(path='api/settings'):
 
 def sanitize_string(string):
     """Sanitizes a string for it to be between U+0000 and U+FFFF"""
-    return ''.join(c for c in string if ord(c) <= 0xFFFF).strip()
-
+    if string:
+        return ''.join(c for c in string if ord(c) <= 0xFFFF).strip()
 
 def get_integer(message, minimum, maximum):
     """Retrieves an integer value, in such a way that `minimum ≤ value ≤ maximum`"""
@@ -45,7 +45,7 @@ def get_integer(message, minimum, maximum):
 
 def get_metadata(db_id):
     """Gets the metadata for the specified backup database ID"""
-    with open('backups/{}.meta'.format(db_id), 'r') as file:
+    with open('backups/{}.meta'.format(db_id), 'r', encoding='utf-8') as file:
         return json.load(file)
 
 

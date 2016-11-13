@@ -23,7 +23,7 @@ class HTMLTLWriter:
         # Open the current output file and store its handle
         output_file = media_handler.get_html_path(current_date)
         makedirs(dirname(output_file), exist_ok=True)
-        self.handle = open(output_file, 'w')
+        self.handle = open(output_file, 'w', encoding='utf-8')
 
         # Begin the header before writing any Telegram message
         self.start_header(current_date=current_date,

@@ -1,4 +1,5 @@
 from os import path, makedirs
+from pathlib import Path
 
 from telethon.tl.types import \
     User, \
@@ -58,6 +59,10 @@ class MediaHandler:
                                       str(date.year),
                                       str(date.month),
                                       '{}.html'.format(date.day)))
+
+    def get_html_uri(self, date):
+        """Retrieves the output file for the given date as URI"""
+        return Path(self.get_html_path(date)).as_uri()
 
     #endregion
 

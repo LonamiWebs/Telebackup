@@ -40,7 +40,7 @@ END = \
 
 LINK_DATE = \
     """
-    <a href="{file}" class="date">{date}</a>
+    <a href="{uri}" class="date">{date}</a>
     """.strip()
 
 DATE = \
