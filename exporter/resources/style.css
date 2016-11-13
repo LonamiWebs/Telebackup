@@ -31,6 +31,22 @@ a.date:hover {
     border-bottom: 2px solid #40CFFF;
 }
 
+/* ----------------------------------------------------- Message services */
+
+div.service {
+    max-width: 200px;
+    margin: 16 auto;
+
+    background-color: #222222;
+    padding: 2px 8px;
+    border-radius: 2px;
+    text-align: center;
+}
+
+div.service p {
+    color: #FFFFFF;
+}
+
 /* ----------------------------------------------------- Messages related */
 
 .in { float: left; }

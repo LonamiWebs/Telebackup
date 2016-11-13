@@ -116,3 +116,21 @@ MESSAGE = \
     """.strip()
 
 #endregion
+
+#region Messsage service
+
+MESSAGE_SERVICE = \
+    """
+        <tr>
+            <td />
+            <td>
+                <div class="service" id="msg-id-{id}">
+                    {content}
+                    <p class="time">{date}</p>
+                </div>
+            </td>
+            <td />
+        </tr>
+    """
+
+#endregion

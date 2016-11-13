@@ -113,7 +113,7 @@ class MediaHandler:
                     media_type = 'stickers'
                     break
                 if isinstance(attr, DocumentAttributeFilename):
-                    media_type = 'files'
+                    media_type = 'documents'
                     break
             if not media_type:
                 return None

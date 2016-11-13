@@ -5,6 +5,8 @@ from threading import Thread
 
 from os.path import isfile
 
+from telethon.tl.types import MessageService
+
 from exporter import HTMLTLWriter
 from media_handler import MediaHandler
 from tl_database import TLDatabase
@@ -108,7 +110,7 @@ class Exporter:
 
                 writer.write_message(msg, db)
                 # If the message has media, we need to copy it so it's accessible by the exported HTML
-                if msg.media:
+                if not isinstance(msg, MessageService) and msg.media:
                     source = db_media_handler.get_msg_media_path(msg)
                     output = self.media_handler.get_msg_media_path(msg)
                     # Source may be None if the media is unsupported (i.e. a webpage)

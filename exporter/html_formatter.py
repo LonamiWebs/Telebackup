@@ -1,4 +1,16 @@
 from telethon.tl.types import Message, MessageMediaPhoto
+
+# Message service actions
+from telethon.tl.types import MessageService
+from telethon.tl.types import \
+    MessageActionChannelCreate, MessageActionChannelMigrateFrom, \
+    MessageActionChatAddUser, MessageActionChatCreate, \
+    MessageActionChatDeletePhoto, MessageActionChatDeleteUser, \
+    MessageActionChatEditPhoto, MessageActionChatEditTitle, \
+    MessageActionChatJoinedByLink, MessageActionChatMigrateTo, \
+    MessageActionEmpty, MessageActionGameScore, \
+    MessageActionHistoryClear, MessageActionPinMessage
+
 from exporter.html_content import *
 
 
@@ -195,20 +207,128 @@ class HTMLFormatter:
         """Formats a full message into HTML content, given the message itself and
            a database to look up for additional information"""
 
-        result = '<tr>'  # Every message is a different row in the table
-        result += self.get_propic(msg=None if msg.out else msg)
+        if isinstance(msg, MessageService):
+            return MESSAGE_SERVICE.format(
+                id=msg.id,
+                content=self.action_to_string(msg, db),
+                date=self.get_date(msg.date)
+            )
+        else:
+            result = '<tr>'  # Every message is a different row in the table
+            result += self.get_propic(msg=None if msg.out else msg)
 
-        result += MESSAGE.format(
-            in_out='out' if msg.out else 'in',
-            id=msg.id,
-            header=self.get_message_header(msg, db),
-            content=self.get_message_content(msg),
-            date=self.get_date(msg.date)
-        )
+            result += MESSAGE.format(
+                in_out='out' if msg.out else 'in',
+                id=msg.id,
+                header=self.get_message_header(msg, db),
+                content=self.get_message_content(msg),
+                date=self.get_date(msg.date)
+            )
 
-        result += self.get_propic(msg=msg if msg.out else None)
-        result += '</tr>'
+            result += self.get_propic(msg=msg if msg.out else None)
+            result += '</tr>'
 
-        return result
+            return result
 
-        #endregion
+    #endregion
+
+    #region Message service
+
+    def action_to_string(self, msg, db):
+        """Converts a MessageService and its action to a string"""
+        action = msg.action
+        who = self.get_who(msg, db)
+
+        # Create channel
+        if isinstance(action, MessageActionChannelCreate):
+            return '<p>{} created the channel "{}"</p>'.format(who, action.title)
+
+        # Migrated channel from a chat
+        if isinstance(action, MessageActionChannelMigrateFrom):
+            chat = db.query_chat('where id={}'.format(action.chat_id))
+            if chat:
+                return '<p>{} migrated channel "{}" migrated from chat "{}"</p>'\
+                    .format(who, action.title, chat.title)
+            else:
+                return '<p>{} migrated channel "{}" from a chat</p>'.format(who, action.title)
+
+        # Added users into a chat
+        if isinstance(action, MessageActionChatAddUser):
+            users = []
+            for user_id in action.users:
+                user = db.query_user('where id={}'.format(user_id))
+                if user:
+                    users.append(self.get_display(user=user))
+                else:
+                    users.append('{Unknown user}')
+            return '<p>{} added {}</p>'.format(who, ', '.join(users))
+
+        # Chat created
+        if isinstance(action, MessageActionChatCreate):
+            # TODO Should this display group members (users)?
+            return '<p>{} created group "{}"</p>'.format(who, action.title)
+
+        # Chat photo removed
+        if isinstance(action, MessageActionChatDeletePhoto):
+            return '<p>{} removed group photo</p>'.format(who)
+
+        # Removed user from chat
+        if isinstance(action, MessageActionChatDeleteUser):
+            user = db.query_user('where id={}'.format(action.user_id))
+            if user:
+                return '<p>{} removed {}</p>'.format(who, action.user_id)
+            else:
+                return '<p>{} removed an user</p>'.format(who)
+
+        # Updated chat photo
+        if isinstance(action, MessageActionChatEditPhoto):
+            # TODO What photo? Is this one backed up? No right?
+            return '<p>{} updated group photo</p>'.format(who)
+
+        # Updated chat title
+        if isinstance(action, MessageActionChatEditTitle):
+            return '<p>{} changed group name to "{}"</p>'.format(who, action.title)
+
+        # Joining by link
+        if isinstance(action, MessageActionChatJoinedByLink):
+            return '<p>{} joined by link ID {}</p>'.format(who, action.inviter_id)
+
+        # Chat migrated to a channel
+        if isinstance(action, MessageActionChatMigrateTo):
+            channel = db.query_channel('where id={}'.format(action.channel_id))
+            if channel:
+                return '<p>{} migrated the chat to channel "{}"</p>'.format(who, channel.title)
+            else:
+                return '<p>{} migrated the chat to a channel</p>'.format(who)
+
+        # Game score
+        if isinstance(action, MessageActionGameScore):
+            # TODO Do we have backups for games?
+            return '<p>{} scored {} at Game#{}</p>'.format(who, action.score, action.game_id)
+
+        # History cleared
+        if isinstance(action, MessageActionHistoryClear):
+            return '<p>{} cleared chat history</p>'.format(who)
+
+        # Message pinned
+        if isinstance(action, MessageActionPinMessage):
+            return '<p>{} pinned a new message</p>'.format(who)
+
+        # No action (when does this even happen?)
+        # if isinstance(action, MessageActionEmpty):
+        return '<p>No action</p>'
+
+    def get_who(self, msg, db):
+        """Returns "who" (You or someone else) performed an action"""
+        if msg.out:
+            return 'You'
+        else:
+            user = db.query_user('where id={}'.format(msg.from_id))
+            if user:
+                return self.get_display(user=user)
+            else:
+                return '{Unknown user}'
+
+    #endregion
+
+    #endregion
