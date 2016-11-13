@@ -48,6 +48,11 @@ DATE = \
     <span title="{long_date}">{short_date}</span>
     """.strip()
 
+DATE_EDIT = \
+    """
+    <span title="{long_date}">{short_date}</span>, edited at <span title="{long_edit_date}">{short_edit_date}</span>
+    """
+
 #endregion
 
 #region Images
@@ -70,6 +75,11 @@ PROPIC = \
 #endregion
 
 #region Messages
+
+MESSAGE_VIA = \
+    """
+    <p class="msg-via">via <b>@{bot}</b></p>
+    """
 
 MESSAGE_HEADER = \
     """

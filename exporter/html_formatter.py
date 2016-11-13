@@ -1,5 +1,12 @@
 from telethon.tl.types import Message, MessageMediaPhoto
 
+# Message entities
+from telethon.tl.types import \
+    MessageEntityBold, MessageEntityItalic, \
+    MessageEntityPre, MessageEntityCode, \
+    MessageEntityUrl, MessageEntityTextUrl, MessageEntityEmail, \
+    MessageEntityHashtag, MessageEntityMention, MessageEntityMentionName
+
 # Message service actions
 from telethon.tl.types import MessageService
 from telethon.tl.types import \
@@ -12,6 +19,7 @@ from telethon.tl.types import \
     MessageActionHistoryClear, MessageActionPinMessage
 
 from exporter.html_content import *
+from io import StringIO
 
 
 class HTMLFormatter:
@@ -43,14 +51,14 @@ class HTMLFormatter:
                 return '{Unknown user}'
 
             if user.last_name:
-                return '{} {}'.format(user.first_name, user.last_name)
+                return HTMLFormatter.sanitize_text('{} {}'.format(user.first_name, user.last_name))
             else:
-                return user.first_name
+                return HTMLFormatter.sanitize_text(user.first_name)
 
         if chat:
             if not chat.title:
                 return '{Unknown chat}'
-            return chat.title
+            return HTMLFormatter.sanitize_text(chat.title)
 
     def get_reply_content(self, msg):
         """Gets the display when replying to a message
@@ -63,19 +71,23 @@ class HTMLFormatter:
 
         return REPLIED_CONTENT.format(replied_content=msg.message)
 
+    # String replacements when sanitizing text
+    sanitize_dict = {
+        '&': '&amp;',
+        '"': '&quot;',
+        "'": '&#39;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '\n': '<br/>'
+    }
+
     @staticmethod
     def sanitize_text(text):
         """Sanitizes a normal string to be writeable into HTML"""
-        replacements = (
-            ('&', '&amp;'),
-            ('"', '&quot;'),
-            ("'", '&#39;'),
-            ('<', '&lt;'),
-            ('>', '&gt;'),
-            ('\n', '<br/>')
-        )
-        for s, r in replacements:
-            text = text.replace(s, r)
+        with StringIO() as result:
+            for c in text:
+                result.write(HTMLFormatter.sanitize_dict.get(c, c))
+
         return text
 
     #endregion
@@ -108,10 +120,18 @@ class HTMLFormatter:
 
     #region Dates
 
-    def get_date(self, date):
+    def get_date(self, date, edit_date=None):
         """Formats a date into HTML content"""
-        return DATE.format(long_date=self.get_long_date(date),
-                           short_date=self.get_short_date(date))
+        if edit_date:
+            return DATE_EDIT.format(
+                long_date=self.get_long_date(date),
+                short_date=self.get_short_date(date),
+                long_edit_date=self.get_long_date(edit_date),
+                short_edit_date=self.get_short_date(edit_date)
+            )
+        else:
+            return DATE.format(long_date=self.get_long_date(date),
+                               short_date=self.get_short_date(date))
 
     def get_link_date(self, date):
         """Retrieves the date as a link to navigate to the file specified by the date"""
@@ -141,11 +161,17 @@ class HTMLFormatter:
 
     #endregion
 
-    #region Messages
+    #region Message header
 
     def get_message_header(self, msg, db):
         """Retrieves the message header given a message (and a database to look up additional details)"""
         sender = db.query_user('where id={}'.format(msg.from_id))
+
+        result = ''
+        if msg.via_bot_id:
+            bot = db.query_user('where id={}'.format(msg.via_bot_id))
+            if bot:
+                result += MESSAGE_VIA.format(bot=bot.username)
 
         if msg.reply_to_msg_id:
             reply_msg = db.query_message('where id={}'.format(msg.reply_to_msg_id))
@@ -157,22 +183,21 @@ class HTMLFormatter:
                 replied_id_link = '{}#msg-id-{}'.format(
                     self.media_handler.get_html_path(reply_msg.date), msg.reply_to_msg_id)
 
-                return MESSAGE_HEADER_REPLY.format(
+                result += MESSAGE_HEADER_REPLY.format(
                     sender=self.get_display(user=sender),
                     replied_sender=self.get_display(user=replied_sender),
                     replied_id_link=replied_id_link,
                     replied_content=self.get_reply_content(reply_msg)  # TODO handle showing photo preview
                 )
             else:
-                return MESSAGE_HEADER_REPLY.format(
+                result += MESSAGE_HEADER_REPLY.format(
                     sender=self.get_display(user=sender),
                     replied_sender='{Unknown}',
                     replied_id_link='#',
                     replied_content='{Reply message lacks of backup}'
                 )
 
-        # Ensure it is not a MessageService
-        elif isinstance(msg, Message) and msg.fwd_from:
+        elif msg.fwd_from:
             # The message could've been forwarded from either another user or from a channel
             if msg.fwd_from.from_id:
                 original_sender = self.get_display(
@@ -181,27 +206,96 @@ class HTMLFormatter:
                 original_sender = self.get_display(
                     chat=db.query_channel('where id={}'.format(msg.fwd_from.channel_id)))
 
-            return MESSAGE_HEADER_FWD.format(
+            result += MESSAGE_HEADER_FWD.format(
                 sender=self.get_display(user=sender),
                 original_sender=original_sender,
                 date=self.get_date(msg.fwd_from.date)
             )
 
         else:
-            return MESSAGE_HEADER.format(sender=self.get_display(user=sender))
-
-    def get_message_content(self, msg):
-        """Formats a message into message content, (including photos, captions, text only...)"""
-        result = ''
-        if msg.media:
-            if isinstance(msg.media, MessageMediaPhoto):
-                result += self.get_msg_img(msg)
-                # TODO handle more media types
-
-        if msg.message:
-            result += '<p>' + self.sanitize_text(msg.message) + '</p>'
+            result += MESSAGE_HEADER.format(sender=self.get_display(user=sender))
 
         return result
+
+    #endregion
+
+    #region Messages
+
+    def get_message_entities(self, msg):
+        # List that will store (index, 'tag') for all the entities
+        entities = []
+        # Load the entities from the message into tags
+        for e in msg.entities:
+            if isinstance(e, MessageEntityBold):
+                entities.append((e.offset, '<b>'))
+                entities.append((e.offset + e.length, '</b>'))
+
+            elif isinstance(e, MessageEntityItalic):
+                entities.append((e.offset, '<i>'))
+                entities.append((e.offset + e.length, '</i>'))
+
+            elif isinstance(e, MessageEntityPre) or \
+                    isinstance(e, MessageEntityCode):
+                # TODO pre has language, use code or pre tag? Add syntax highlight?:
+                # https://highlightjs.org/ or https://github.com/google/code-prettify
+                entities.append((e.offset, '<code>'))
+                entities.append((e.offset + e.length, '</code>'))
+
+            elif isinstance(e, MessageEntityUrl):
+                href = msg.message[e.offset:e.offset+e.length]
+                entities.append((e.offset, '<a href="{}" target="_blank">'.format(href)))
+                entities.append((e.offset + e.length, '</a>'))
+
+            elif isinstance(e, MessageEntityTextUrl):
+                entities.append((e.offset, '<a href="{}" target="_blank">'.format(e.url)))
+                entities.append((e.offset + e.length, '</a>'))
+
+            elif isinstance(e, MessageEntityEmail):
+                mail = msg.message[e.offset:e.offset+e.length]
+                entities.append((e.offset, '<a href="mailto:{}" target="_blank">'.format(mail)))
+                entities.append((e.offset + e.length, '</a>'))
+
+            # TODO No support for searching for messages yet
+            # Maybe launch a python script which searches for a message and creates an HTML with them
+            # elif isinstance(e, MessageEntityHashtag)
+            # elif isinstance(e, MessageEntityMention)
+            # elif isinstance(e, MessageEntityMentionName)
+
+        return entities
+
+    # TODO Should replies also have formatting?
+    def get_message_content(self, msg):
+        """Formats a message into message content, (including photos, captions, text only...)"""
+
+        with StringIO() as result:
+            if msg.media:
+                if isinstance(msg.media, MessageMediaPhoto):
+                    result.write(self.get_msg_img(msg))
+                    # TODO handle more media types
+
+            if msg.message:
+                result.write('<p>')
+                entities = self.get_message_entities(msg)
+                # We need to go character by character to know when to insert bold text, etc
+                for i, c in enumerate(msg.message):
+                    # Iterate the entities in reverse order to be able to pop them
+                    for j in range(len(entities)-1, -1, -1):
+                        e, tag = entities[j]
+                        if e == i:
+                            entities.pop(j)
+                            result.write(tag)
+
+                    # Write the sanitized message string (curret character)
+                    result.write(self.sanitize_dict.get(c, c))
+
+                # If there are entities left, they're at the end of the string
+                # Close them all
+                for e, tag in entities:
+                    result.write(tag)
+
+                result.write('</p>')
+
+            return result.getvalue()
 
     def get_message(self, msg, db):
         """Formats a full message into HTML content, given the message itself and
@@ -222,7 +316,7 @@ class HTMLFormatter:
                 id=msg.id,
                 header=self.get_message_header(msg, db),
                 content=self.get_message_content(msg),
-                date=self.get_date(msg.date)
+                date=self.get_date(msg.date, msg.edit_date)
             )
 
             result += self.get_propic(msg=msg if msg.out else None)

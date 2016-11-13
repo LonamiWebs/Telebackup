@@ -34,7 +34,7 @@ a.date:hover {
 /* ----------------------------------------------------- Message services */
 
 div.service {
-    max-width: 200px;
+    max-width: 300px;
     margin: 16 auto;
 
     background-color: #222222;
@@ -70,6 +70,16 @@ div.msg {
 p.msg-header {
     font-size: 8px;
     margin: 0;
+}
+
+p.msg-via {
+    font-size: 10px;
+    font-style: italic;
+    color: #8888DD;
+}
+
+code {
+    color: #444466;
 }
 
 /* -------------------------- Replies */
