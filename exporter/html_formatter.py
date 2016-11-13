@@ -1,4 +1,4 @@
-from telethon.tl.types import MessageMediaPhoto
+from telethon.tl.types import Message, MessageMediaPhoto
 from exporter.html_content import *
 
 
@@ -40,16 +40,16 @@ class HTMLFormatter:
                 return '{Unknown chat}'
             return chat.title
 
-
-    @staticmethod
-    def get_reply_display(msg):
+    def get_reply_content(self, msg):
         """Gets the display when replying to a message
            (which may only be media, a document, a photo with caption...)"""
         if msg.media:
-            return '{Photo}'
+            if isinstance(msg.media, MessageMediaPhoto):
+                return REPLIED_CONTENT_IMG.format(img=self.get_msg_img(msg),
+                                                  replied_content=msg.message)
             # TODO handle more media types
 
-        return msg.message
+        return REPLIED_CONTENT.format(replied_content=msg.message)
 
     @staticmethod
     def sanitize_text(text):
@@ -149,7 +149,7 @@ class HTMLFormatter:
                     sender=self.get_display(user=sender),
                     replied_sender=self.get_display(user=replied_sender),
                     replied_id_link=replied_id_link,
-                    replied_content=self.get_reply_display(reply_msg)  # TODO handle showing photo preview
+                    replied_content=self.get_reply_content(reply_msg)  # TODO handle showing photo preview
                 )
             else:
                 return MESSAGE_HEADER_REPLY.format(
@@ -159,7 +159,8 @@ class HTMLFormatter:
                     replied_content='{Reply message lacks of backup}'
                 )
 
-        elif msg.fwd_from:
+        # Ensure it is not a MessageService
+        elif isinstance(msg, Message) and msg.fwd_from:
             # The message could've been forwarded from either another user or from a channel
             if msg.fwd_from.from_id:
                 original_sender = self.get_display(

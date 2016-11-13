@@ -17,6 +17,13 @@ Please note that this program will **not** update those messages which were edit
 backup a conversation, if you edit messages which were included in the backup, they will not be updated.
 This, however, should be no issue.
 
+## FAQ
+### The exported backups don't look right
+Please make sure you have enabled _JavaScript_ for local files.
+Also, Firefox does not support `.webp` files, which is the stickers' format.
+You shall consider using another web browser, such as _Chromium_
+(at least when viewing the backups), which can display these files.
+
 ## How does it work?
 Every dialog (let it be an user, a chat, or a channel) is stored in its own database (SQLite). This database includes all
 the users and channels who have participated in it, and all the messages related to that dialog. This means that

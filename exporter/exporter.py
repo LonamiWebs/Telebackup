@@ -4,7 +4,6 @@ from shutil import copyfile
 from threading import Thread
 
 from os.path import isfile
-from telethon.tl.types import MessageMediaPhoto
 
 from exporter import HTMLTLWriter
 from media_handler import MediaHandler

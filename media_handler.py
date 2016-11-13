@@ -1,6 +1,12 @@
 from os import path, makedirs
 
-from telethon.tl.types import User, MessageMediaPhoto, MessageMediaDocument
+from telethon.tl.types import \
+    User, \
+    MessageMediaPhoto, MessageMediaDocument, \
+    DocumentAttributeAnimated, DocumentAttributeAudio, \
+    DocumentAttributeVideo, DocumentAttributeSticker, \
+    DocumentAttributeFilename
+
 from telethon.utils import get_extension
 
 
@@ -13,8 +19,12 @@ class MediaHandler:
     tree_structure = {
         'propics': path.join('media', 'profile_photos'),
         'photos': path.join('media', 'photos'),
-        'documents': path.join('media', 'documents'),
-        'stickers': path.join('media', 'stickers')
+
+        'gifs': path.join('media', 'documents', 'gifs'),
+        'audios': path.join('media', 'documents', 'audios'),
+        'videos': path.join('media', 'documents', 'videos'),
+        'stickers': path.join('media', 'documents', 'stickers'),
+        'documents': path.join('media', 'documents', 'files'),
     }
 
     def __init__(self, base_dir):
@@ -88,7 +98,27 @@ class MediaHandler:
                                .format(msg.media.photo.id, get_extension(msg.media)))
 
         if isinstance(msg.media, MessageMediaDocument):
-            result = path.join(self.directories['documents'], '{}{}'
+            media_type = None
+            for attr in msg.media.document.attributes:
+                if isinstance(attr, DocumentAttributeAnimated):
+                    media_type = 'gifs'
+                    break
+                if isinstance(attr, DocumentAttributeAudio):
+                    media_type = 'audios'
+                    break
+                if isinstance(attr, DocumentAttributeVideo):
+                    media_type = 'videos'
+                    break
+                if isinstance(attr, DocumentAttributeSticker):
+                    media_type = 'stickers'
+                    break
+                if isinstance(attr, DocumentAttributeFilename):
+                    media_type = 'files'
+                    break
+            if not media_type:
+                return None
+
+            result = path.join(self.directories[media_type], '{}{}'
                                .format(msg.media.document.id, get_extension(msg.media)))
         if result:
             return path.abspath(result)

@@ -67,6 +67,10 @@ a.reply p {
     padding: 0 0 0 16px;
 }
 
+a.reply img {
+    height: 64px;
+}
+
 /* -------------------------- Animation after clicking a reply */
 
 div.msg:target {

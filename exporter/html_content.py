@@ -88,6 +88,21 @@ MESSAGE_HEADER_REPLY = \
         <hr />
     """.strip()
 
+REPLIED_CONTENT = \
+    """
+        <p>{replied_content}</p>
+    """.strip()
+
+REPLIED_CONTENT_IMG = \
+    """
+        <table>
+        <tr>
+            <td>{img}</td>
+            <td><p>{replied_content}</p></td>
+        </tr>
+        </table>
+    """.strip()
+
 # Note that the messages should be encapsulated in table rows ('<tr/>')
 MESSAGE = \
     """
