@@ -1,7 +1,9 @@
 from tkinter import *
 from tkinter.ttk import *
 
-from telethon.utils import get_display_name
+from telethon.tl.functions.messages import GetDialogsRequest
+from telethon.tl.types import InputPeerEmpty
+from telethon.utils import get_display_name, get_input_peer
 
 from backuper import Backuper
 from gui import start_app
@@ -22,10 +24,11 @@ class SelectDialogWindow(Frame):
 
         # Load previous backups entities
         self.entities = list(Backuper.enumerate_backups_entities())
+        self.last_date = None
         self.update_conversation_list()
 
         # Load dialogs after the window has loaded (arbitrary 100ms)
-        self.after(ms=100, func=self.on_load)
+        self.after(ms=100, func=self.load_more_dialogs)
 
     #region Widgets setup
 
@@ -52,11 +55,18 @@ class SelectDialogWindow(Frame):
         self.search_box.bind('<KeyPress>', self.search)
         self.search_box.grid(row=2, columnspan=2, sticky=EW)
 
+        #                                                           Load more
+        self.load_more = Button(self,
+                                text='Load more',
+                                command=self.load_more_dialogs,
+                                state=DISABLED)
+        self.load_more.grid(row=3, columnspan=2, sticky=EW)
+
         #                                                           Next button
         self.next = Button(self,
                            text='Next',
                            command=self.on_next)
-        self.next.grid(row=3, columnspan=2, sticky=EW)
+        self.next.grid(row=4, columnspan=2, sticky=EW)
 
     def update_conversation_list(self):
         """Updates the conversation list with the currently
@@ -73,16 +83,29 @@ class SelectDialogWindow(Frame):
 
     #region Events
 
-    def on_load(self):
-        """Event that occurs after the window has loaded"""
+    def load_more_dialogs(self):
+        """Event used to load more dialogs on the button press"""
         print('Loading dialogs...')
+        self.load_more.config(state=DISABLED)
 
-        # Do not add an entity twice
-        for entity in self.client.get_dialogs(count=50)[1]:
+        r = self.client.invoke(GetDialogsRequest(offset_date=self.last_date,
+                                                 offset_id=0,
+                                                 offset_peer=InputPeerEmpty(),
+                                                 limit=20))
+        for entity in r.users:
+            # Do not add an entity twice
             if not any(e for e in self.entities if e.id == entity.id):
                 self.entities.append(entity)
 
+        for entity in r.chats:
+            if not any(e for e in self.entities if e.id == entity.id):
+                self.entities.append(entity)
+
+        if r.messages:
+            self.last_date = r.messages[-1].date
+
         self.update_conversation_list()
+        self.load_more.config(state=NORMAL)
         print('Dialogs loaded.')
 
     #endregion
