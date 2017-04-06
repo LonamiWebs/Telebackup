@@ -35,7 +35,8 @@ class SelectDialogWindow(Frame):
     def create_widgets(self):
         #                                                           Welcome label
         self.welcome = Label(self,
-                             text='Please select a conversation:')
+                             text='Please select a conversation\n'
+                                  'or multiple to queue them:')
         self.welcome.grid(row=0, columnspan=2)
 
         #                                                           Scroll bar for the list
@@ -43,6 +44,7 @@ class SelectDialogWindow(Frame):
 
         #                                                           Conversations list
         self.conversation_list = Listbox(self,
+                                         selectmode='multiple',
                                          yscrollcommand=self.scrollbar.set)
         self.conversation_list.bind("<Double-Button-1>", self.on_next)
         self.scrollbar.config(command=self.conversation_list.yview)
@@ -117,18 +119,24 @@ class SelectDialogWindow(Frame):
         # Ensure the user has selected an entity
         selection = self.conversation_list.curselection()
         if selection:
-            index = selection[0]
-            value = self.conversation_list.get(index)
+            # Get the selected names
+            values = [self.conversation_list.get(s) for s in selection]
 
             # Search for the matching entity (user or chat)
             # TODO Note that this will NOT work if they have the exact same name!
-            for entity in self.entities:
-                display = sanitize_string(get_display_name(entity))
-                if value == display:
-                    self.master.destroy()
-                    # Import the window here to avoid cyclic dependencies
-                    from gui.windows import BackupWindow
-                    start_app(BackupWindow, entity=entity)
+            entities = []
+            for value in values:
+                for entity in self.entities:
+                    display = sanitize_string(get_display_name(entity))
+                    if value == display:
+                        entities.append(entity)
+
+            # If we found any matching entity, destroy this window and open the backup one
+            if entities:
+                self.master.destroy()
+                # Import the window here to avoid cyclic dependencies
+                from gui.windows import BackupWindow
+                start_app(BackupWindow, entities=entities)
 
     def search(self, *args):
         """Gets fired when the search term changes"""

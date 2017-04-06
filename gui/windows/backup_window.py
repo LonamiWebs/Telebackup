@@ -21,22 +21,60 @@ class BackupWindow(Frame):
     def __init__(self, master=None, **args):
         super().__init__(master)
 
-        # Save our entity and its display
-        self.entity = args['entity']
-        self.display = sanitize_string(get_display_name(self.entity))
-
         # Get a cached client and initialize a backuper instance with it
         self.client = get_cached_client()
-        self.backuper = Backuper(self.client, self.entity)
-        self.backuper.on_metadata_change = self.on_metadata_change
 
         # Set up the frame itself
-        self.master.title('Backup with {}'.format(self.display))
         self.pack(padx=16, pady=16)
         self.create_widgets()
 
+        # Save our entities and set the first one
+        self.entities = args['entities']
+        self.entity = None
+        self.entity_i = 0
+        self.switch_entity(0)
+
+    def switch_entity(self, index_delta):
+        """Switches the current entity to another one"""
+
+        # Update the current entity index (and its value)
+        i = self.entity_i + index_delta
+        if not 0 <= i < len(self.entities):
+            return False
+
+        self.entity_i = i
+        self.entity = self.entities[i]
+
+        # Once we have the entity, update the display, the backuper for it and the title
+        self.display = sanitize_string(get_display_name(self.entity))
+
+        self.backuper = Backuper(self.client, self.entity)
+        self.backuper.on_metadata_change = self.on_metadata_change
+
+        if len(self.entities) == 1:
+            title = 'Backup with %s' % self.display
+        else:
+            title = '[%d/%d] Backup with %s' % (i + 1, len(self.entities), self.display)
+
+        self.master.title(title)
+        self.title.config(text=title)
+        self.etl.config(text='Estimated time left: %s' % self.backuper.metadata.get('etl', 'unknown'))
+
+        # Update the entity card
+        if hasattr(self, 'entity_card'):
+            self.entity_card.grid_remove()
+            self.entity_card.destroy()
+
+        self.entity_card = EntityCard(self.right_column,
+                                      entity=self.entity,
+                                      padding=16)
+        self.entity_card.grid(row=0, sticky=EW)
+
         # Download the profile picture in a different thread
         Thread(target=self.dl_propic).start()
+
+        # Return True (we did switch the user)
+        return True
 
     def dl_propic(self):
         self.backuper.update_total_messages()
@@ -50,7 +88,7 @@ class BackupWindow(Frame):
     def create_widgets(self):
         #                                                           Title label
         self.title = Label(self,
-                           text='Backup generation for {}'.format(self.display),
+                           text='Backup generation',
                            font='-weight bold -size 18',
                            padding=(16, 0, 16, 16))
         self.title.grid(row=0, columnspan=2)
@@ -112,12 +150,6 @@ class BackupWindow(Frame):
         # Let this column (0) expand and contract with the window
         self.right_column.columnconfigure(0, weight=1)
 
-        #                                                           Entity card showing stats
-        self.entity_card = EntityCard(self.right_column,
-                                      entity=self.entity,
-                                      padding=16)
-        self.entity_card.grid(row=0, sticky=EW)
-
         #                                                           Right bottom column
         self.bottom_column = Frame(self.right_column,
                                    padding=(0, 16, 0, 0))
@@ -127,8 +159,7 @@ class BackupWindow(Frame):
 
         #                                                           Estimated time left
         self.etl = Label(self.bottom_column,
-                         text='Estimated time left: {}'
-                         .format(self.backuper.metadata.get('etl', '???')))
+                         text='Estimated time left')
         self.etl.grid(row=0, sticky=W)
 
         #                                                           Download progress bar
@@ -137,7 +168,7 @@ class BackupWindow(Frame):
 
         #                                                           Downloaded messages/total messages
         self.text_progress = Label(self.bottom_column,
-                                      text='???/??? messages saved')
+                                   text='???/??? messages saved')
         self.text_progress.grid(row=2, sticky=E)
 
         # Keep a tuple with all the buttons for easy access
@@ -149,6 +180,8 @@ class BackupWindow(Frame):
 
     def resume_pause_backup(self):
         """Resumes or pauses the backup, depending on resume_pause current state"""
+
+        # Checked = Paused, if it was paused, then resume and vice versa
         if self.resume_pause.is_checked:
             # The button is now checked (paused → resumed)
             self.toggle_buttons(False, self.resume_pause)
@@ -233,6 +266,11 @@ class BackupWindow(Frame):
         # The backup must also be running so we can stop it
         if have_all and self.backuper.backup_running:
             self.resume_pause.toggle(False)
+
+            # Automatically switch to the next queued user
+            # If there were more users left, resume the backup for this one
+            if self.switch_entity(+1):
+                self.resume_pause.toggle(True)
 
     def on_export_callback(self, progress):
         """Occurs when the exporters progress changes"""
