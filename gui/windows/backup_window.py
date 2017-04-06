@@ -70,6 +70,23 @@ class BackupWindow(Frame):
                                       padding=16)
         self.entity_card.grid(row=0, sticky=EW)
 
+        # Ensure the previous and next buttons are visible
+        if len(self.entities) > 1 and not hasattr(self, 'prev_next_frame'):
+            self.prev_next_frame = Frame(self.left_column)
+            self.prev_next_frame.grid(row=4, sticky=NE)
+
+            # Previous entity
+            self.prev_entity_button = Button(self.prev_next_frame,
+                                             image=load_png('prev'),
+                                             command=lambda: self.switch_entity(-1))
+            self.prev_entity_button.grid(row=0, column=0, sticky=W)
+
+            # Next entity
+            self.next_entity_button = Button(self.prev_next_frame,
+                                             image=load_png('next'),
+                                             command=lambda: self.switch_entity(+1))
+            self.next_entity_button.grid(row=0, column=1, sticky=E)
+
         # Download the profile picture in a different thread
         Thread(target=self.dl_propic).start()
 
@@ -114,7 +131,7 @@ class BackupWindow(Frame):
                                        checked_image=load_png('cancel'),
                                        on_toggle=self.prompt_save_media)
         self.save_media_dialog_shown = False
-        self.save_media.grid(row=1, sticky=N)
+        self.save_media.grid(row=1, sticky=NE)
 
         #                                                           Export backup
         self.export = Button(self.left_column,
@@ -133,8 +150,10 @@ class BackupWindow(Frame):
         self.delete.grid(row=3, sticky=NE)
 
         #                                                           Margin label
+        # Skip from row 3 to 5 to make room for a 4th possible row
+        # This 4th row shall contain "previous/next" buttons (> 1 entities)
         self.margin = Label(self.left_column)
-        self.margin.grid(row=4, sticky=NE)
+        self.margin.grid(row=5, sticky=NE)
 
         #                                                           Go back
         self.back = Button(self.left_column,
@@ -142,7 +161,7 @@ class BackupWindow(Frame):
                            image=load_png('back'),
                            compound=LEFT,
                            command=self.go_back)
-        self.back.grid(row=5, sticky=NE)
+        self.back.grid(row=6, sticky=NE)
 
         #                                                           -- Right column
         self.right_column = Frame(self)
