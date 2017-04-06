@@ -10,7 +10,7 @@ import telethon.tl.all_tlobjects as all_tlobjects
 from telethon import RPCError
 from telethon.tl.functions.messages import GetHistoryRequest
 from telethon.tl.types import MessageMediaPhoto, MessageMediaDocument
-from telethon.tl.types.messages import Messages, MessagesSlice
+from telethon.tl.types.messages import Messages, MessagesSlice, ChannelMessages
 
 from telethon.utils import \
     BinaryReader, BinaryWriter, \
@@ -225,7 +225,8 @@ class Backuper:
                 ))
                 # For some strange reason, GetHistoryRequest might return upload.file.File
                 # Ensure we retrieved Messages or MessagesSlice
-                if not isinstance(result, Messages) and not isinstance(result, MessagesSlice):
+                if not isinstance(result, Messages) and not isinstance(result, MessagesSlice) \
+                        and not isinstance(result, ChannelMessages):
                     print('Invalid result type when downloading messages:', type(result))
                     sleep(self.download_delay)
                     continue
