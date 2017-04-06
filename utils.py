@@ -87,9 +87,9 @@ def get_cached_client():
     if not cached_client:
         print('Loading client...')
         settings = load_settings()
-        cached_client = TelegramClient(session_user_id=settings.get('session_name', 'anonymous'),
-                                api_id=settings['api_id'],
-                                api_hash=settings['api_hash'])
+        cached_client = TelegramClient(session=settings.get('session_name', 'anonymous'),
+                                       api_id=settings['api_id'],
+                                       api_hash=settings['api_hash'])
         cached_client.connect()
 
         # Then, ensure we're authorized and have access

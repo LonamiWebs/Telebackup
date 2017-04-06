@@ -269,7 +269,7 @@ class TLDatabase:
             # If there is no message, then it probably was a caption
             # Given that we may want to search for the message (the "caption"),
             # store it under "message" so its searchable
-            message = getattr(msg.media, 'caption')
+            message = getattr(msg.media, 'caption', None)
         else:
             message = None
 
