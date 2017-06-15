@@ -63,13 +63,14 @@ class HTMLFormatter:
     def get_reply_content(self, msg):
         """Gets the display when replying to a message
            (which may only be media, a document, a photo with caption...)"""
-        if msg.media:
+        if getattr(msg, 'media', None):
             if isinstance(msg.media, MessageMediaPhoto):
                 return REPLIED_CONTENT_IMG.format(img=self.get_msg_img(msg),
                                                   replied_content=msg.message)
             # TODO handle more media types
 
-        return REPLIED_CONTENT.format(replied_content=msg.message)
+        return REPLIED_CONTENT.format(
+            replied_content=getattr(msg, 'message', type(msg)))
 
     # String replacements when sanitizing text
     sanitize_dict = {

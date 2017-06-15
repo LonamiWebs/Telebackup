@@ -1,6 +1,8 @@
 import sqlite3
 
 from os import path, makedirs
+
+from telethon import TypeNotFoundError
 from telethon.tl.types import \
     Message, MessageService, \
     User, UserEmpty, \
@@ -142,7 +144,10 @@ class TLDatabase:
             return None
 
         with BinaryReader(blob) as reader:
-            return reader.tgread_object()
+            try:
+                return reader.tgread_object()
+            except TypeNotFoundError:
+                return None
 
     @staticmethod
     def convert_vector(blob):
@@ -351,11 +356,11 @@ class TLDatabase:
         # We need to use getattr because it may be a ChatEmpty or ChatForbidden
         c.execute(query,
                   (chat.id,
-                   getattr(chat, 'date'),
-                   getattr(chat, 'creator'),
-                   getattr(chat, 'title'),
-                   getattr(chat, 'participants_count'),
-                   self.adapt_object(getattr(chat, 'photo'))))
+                   getattr(chat, 'date', None),
+                   getattr(chat, 'creator', None),
+                   getattr(chat, 'title', None),
+                   getattr(chat, 'participants_count', None),
+                   self.adapt_object(getattr(chat, 'photo', None))))
 
     def add_channel(self, channel, replace=False):
         """Adds a channel TLObject to its table"""
@@ -369,12 +374,12 @@ class TLDatabase:
         c.execute(query,
                   (channel.id,
                    channel.access_hash,
-                   getattr(channel, 'megagroup'),
-                   getattr(channel, 'date'),
-                   getattr(channel, 'creator'),
+                   getattr(channel, 'megagroup', None),
+                   getattr(channel, 'date', None),
+                   getattr(channel, 'creator', None),
                    channel.title,
-                   getattr(channel, 'username'),
-                   self.adapt_object(getattr(channel, 'photo'))))
+                   getattr(channel, 'username', None),
+                   self.adapt_object(getattr(channel, 'photo', None))))
 
     #endregion
 

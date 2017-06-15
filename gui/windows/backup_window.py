@@ -13,8 +13,7 @@ from gui.res import load_png
 from gui.widgets import EntityCard, ToggleButton
 from gui.windows import SelectMediaDialog
 
-from utils import get_cached_client, sanitize_string, size_to_str
-from telethon.utils import get_display_name
+from utils import get_cached_client, sanitize_string, size_to_str, get_display
 
 
 class BackupWindow(Frame):
@@ -46,7 +45,7 @@ class BackupWindow(Frame):
         self.entity = self.entities[i]
 
         # Once we have the entity, update the display, the backuper for it and the title
-        self.display = sanitize_string(get_display_name(self.entity))
+        self.display = get_display(self.entity)
 
         self.backuper = Backuper(self.client, self.entity)
         self.backuper.on_metadata_change = self.on_metadata_change

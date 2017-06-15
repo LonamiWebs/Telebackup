@@ -3,11 +3,10 @@ from tkinter.ttk import *
 
 from telethon.tl.functions.messages import GetDialogsRequest
 from telethon.tl.types import InputPeerEmpty
-from telethon.utils import get_display_name, get_input_peer
 
 from backuper import Backuper
 from gui import start_app
-from utils import get_cached_client, sanitize_string
+from utils import get_cached_client, get_display
 
 
 class SelectDialogWindow(Frame):
@@ -77,7 +76,7 @@ class SelectDialogWindow(Frame):
         self.conversation_list.delete(0, END)
 
         for entity in self.entities:
-            display = sanitize_string(get_display_name(entity))
+            display = get_display(entity)
             if display and search in display.lower():
                 self.conversation_list.insert(END, display)
 
@@ -127,8 +126,7 @@ class SelectDialogWindow(Frame):
             entities = []
             for value in values:
                 for entity in self.entities:
-                    display = sanitize_string(get_display_name(entity))
-                    if value == display:
+                    if value == get_display(entity):
                         entities.append(entity)
 
             # If we found any matching entity, destroy this window and open the backup one

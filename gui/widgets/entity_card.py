@@ -3,9 +3,8 @@ from tkinter.ttk import *
 
 from PIL import ImageTk, Image
 from os.path import isfile
-from telethon.utils import get_display_name
 
-from utils import sanitize_string
+from utils import sanitize_string, get_display
 
 
 class EntityCard(Frame):
@@ -33,7 +32,7 @@ class EntityCard(Frame):
         self.right_column.grid(row=0, column=1)
 
         self.name_label = Label(self.right_column,
-                                   text=sanitize_string(get_display_name(self.entity)),
+                                   text=get_display(self.entity),
                                    font='-weight bold -size 14')
         self.name_label.grid(row=0, sticky=NW)
 

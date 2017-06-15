@@ -7,7 +7,7 @@ from threading import Thread
 from time import sleep
 
 import telethon.tl.all_tlobjects as all_tlobjects
-from telethon import RPCError
+from telethon import RPCError, TypeNotFoundError
 from telethon.tl.functions.messages import GetHistoryRequest
 from telethon.tl.types import MessageMediaPhoto, MessageMediaDocument
 from telethon.tl.types.messages import Messages, MessagesSlice, ChannelMessages
@@ -133,7 +133,11 @@ class Backuper:
                     # Load and yield it
                     with open(entity_file, 'rb') as file:
                         with BinaryReader(stream=file) as reader:
-                            yield reader.tgread_object()
+                            try:
+                                yield reader.tgread_object()
+                            except TypeNotFoundError:
+                                # Old user, scheme got updated, don't care.
+                                pass
 
     #endregion
 

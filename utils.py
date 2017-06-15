@@ -3,6 +3,7 @@ from glob import glob
 from os import path
 
 from telethon import TelegramClient
+from telethon.utils import get_display_name
 
 from gui import start_app
 
@@ -78,6 +79,13 @@ def prompt_pick_backup(message):
 
     db_id = saved_db[get_integer(message, 1, len(saved_db)) - 1]
     return db_id, get_metadata(db_id)
+
+
+def get_display(entity):
+    if hasattr(entity, 'deleted') and entity.deleted:
+        return '(deleted user %d)' % entity.id
+    else:
+        return sanitize_string(get_display_name(entity))
 
 
 def get_cached_client():
