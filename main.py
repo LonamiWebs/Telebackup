@@ -1,12 +1,21 @@
-from gui import start_app
-from gui.windows import SelectDialogWindow
-from utils import get_cached_client
+from backuper import Backuper
+from utils import create_client
+
+
+def main(client):
+    """Main method"""
+    '''
+    entity = client.get_dialogs(1)[1][0]
+    backuper = Backuper(client, entity)
+    backuper.start_backup()
+    '''
 
 
 if __name__ == '__main__':
-    # Since this is the first time, it will be loaded and cached
+    client = None
     try:
-        get_cached_client()
-        start_app(SelectDialogWindow)
+        client = create_client()
+        main(client)
     finally:
-        get_cached_client().disconnect()
+        if client:
+            client.disconnect()

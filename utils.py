@@ -5,25 +5,14 @@ from os import path
 from telethon import TelegramClient
 from telethon.utils import get_display_name
 
-from gui import start_app
-
-cached_client = None
-
 
 def load_settings(path='api/settings'):
     """Loads the user settings located under `api/`"""
-    settings = {}
     with open(path, 'r', encoding='utf-8') as file:
-        for line in file:
-            value_pair = line.split('=')
-            left = value_pair[0].strip()
-            right = value_pair[1].strip()
-            if right.isnumeric():
-                settings[left] = int(right)
-            else:
-                settings[left] = right
-
-    return settings
+        return {
+            l.strip(): r.strip()
+            for l, r in (l.split('=') for l in file if l.strip())
+        }
 
 
 def sanitize_string(string):
@@ -31,8 +20,11 @@ def sanitize_string(string):
     if string:
         return ''.join(c for c in string if ord(c) <= 0xFFFF).strip()
 
+
 def get_integer(message, minimum, maximum):
-    """Retrieves an integer value, in such a way that `minimum ≤ value ≤ maximum`"""
+    """Retrieves an integer value prompted from console,
+       in such a way that `minimum ≤ value ≤ maximum`
+    """
     while True:
         try:
             value = int(input(message))
@@ -41,7 +33,8 @@ def get_integer(message, minimum, maximum):
 
             return value
         except ValueError:
-            print('Please enter an integer value between {} and {}'.format(minimum, maximum))
+            print('Please enter an integer value between {} and {}'
+                  .format(minimum, maximum))
 
 
 def get_metadata(db_id):
@@ -52,8 +45,7 @@ def get_metadata(db_id):
 
 def size_to_str(size):
     """Converts a size, given in bytes length, to a string representation"""
-    #                                             Only to keep us covered (1024^8)
-    sizes = ['bytes', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB']
+    sizes = ['bytes', 'KiB', 'MiB', 'GiB', 'TiB']
     pos = 0
     while size >= 1024:
         size /= 1024
@@ -88,28 +80,23 @@ def get_display(entity):
         return sanitize_string(get_display_name(entity))
 
 
-def get_cached_client():
+def create_client():
     """Gets an authorized TelegramClient, performing
        the authorization process if it's the first time"""
-    global cached_client
-    if not cached_client:
-        print('Loading client...')
-        settings = load_settings()
-        cached_client = TelegramClient(session=settings.get('session_name', 'anonymous'),
-                                       api_id=settings['api_id'],
-                                       api_hash=settings['api_hash'])
-        cached_client.connect()
+    print('Loading client...')
+    settings = load_settings()
+    client = TelegramClient(
+        settings.get('session_name', 'anonymous'),
+        settings['api_id'], settings['api_hash']
+    )
 
-        # Then, ensure we're authorized and have access
-        if not cached_client.is_user_authorized():
-            # Import the login window locally to avoid cyclic dependencies
-            from gui.windows import LoginWindow
+    print('Connecting...')
+    client.connect()
+    if not client.is_user_authorized():
+        print('Sending code request...')
+        client.send_code_request(settings['user_phone'])
+        code = input('Enter the code: ')
+        client.sign_in(settings['user_phone'], code)
 
-            print('First run, client not authorized. Sending code request.')
-            cached_client.send_code_request(str(settings['user_phone']))
-            start_app(LoginWindow, client=cached_client, phone=settings['user_phone'])
-
-            del LoginWindow
-
-        print('Client loaded and authorized.')
-    return cached_client
+    print('Client loaded.')
+    return client

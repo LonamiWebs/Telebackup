@@ -7,14 +7,11 @@ from threading import Thread
 from time import sleep
 
 import telethon.tl.all_tlobjects as all_tlobjects
-from telethon import RPCError, TypeNotFoundError
+from telethon.errors import RPCError, TypeNotFoundError
 from telethon.tl.functions.messages import GetHistoryRequest
 from telethon.tl.types import MessageMediaPhoto, MessageMediaDocument
 from telethon.tl.types.messages import Messages, MessagesSlice, ChannelMessages
-
-from telethon.utils import \
-    BinaryReader, BinaryWriter, \
-    get_input_peer
+from telethon.extensions import BinaryReader, BinaryWriter
 
 from media_handler import MediaHandler
 from tl_database import TLDatabase
@@ -103,7 +100,7 @@ class Backuper:
         """Updates the total messages with the current peer"""
 
         result = self.client.invoke(GetHistoryRequest(
-            peer=get_input_peer(self.entity),
+            peer=self.entity,
             # No offset, we simply want the total messages count
             offset_id=0, limit=0, offset_date=None,
             add_offset=0, max_id=0, min_id=0
@@ -210,12 +207,13 @@ class Backuper:
         # Make the backup
         try:
             # We need this to invoke GetHistoryRequest
-            input_peer = get_input_peer(self.entity)
+            input_peer = self.entity
 
             # Keep track from when we started to determine the estimated time left
             start = datetime.now()
 
             # Enter the download-messages main loop
+            self.client.connect()
             while self.backup_running:
                 # Invoke the GetHistoryRequest to get the next messages after those we have
                 result = self.client.invoke(GetHistoryRequest(

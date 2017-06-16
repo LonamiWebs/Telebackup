@@ -2,14 +2,14 @@ import sqlite3
 
 from os import path, makedirs
 
-from telethon import TypeNotFoundError
+from telethon.errors import TypeNotFoundError
 from telethon.tl.types import \
     Message, MessageService, \
     User, UserEmpty, \
     Chat, ChatEmpty, ChatForbidden, \
     Channel, ChannelForbidden
 
-from telethon.utils import BinaryReader, BinaryWriter
+from telethon.extensions import BinaryReader, BinaryWriter
 
 
 class TLDatabase:
